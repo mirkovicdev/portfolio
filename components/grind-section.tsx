@@ -443,7 +443,9 @@ const handleMouseDown = (e: React.MouseEvent) => {
                     <img
                       src={mathImages[currentImageIndex] || "/placeholder.svg"}
                       alt={`Math board ${currentImageIndex + 1}`}
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full object-cover ${
+                        mathImages[currentImageIndex] === "/m1.jpg" ? "sm:object-center object-left" : ""
+                      }`}
                     />
 
                     <button
