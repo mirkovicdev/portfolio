@@ -240,7 +240,7 @@ export default function Portfolio() {
 
 
 
-                <div className="grid grid-cols-2 gap-4 mt-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
                   <div className="space-y-1">
                     <div className="text-sm text-zinc-500">Name</div>
                     <div className="font-medium">Antonije Mirkovic</div>
@@ -248,7 +248,7 @@ export default function Portfolio() {
 
                   <div className="space-y-1">
                     <div className="text-sm text-zinc-500">Email</div>
-                    <div className="font-medium">antonije@mirkovic.no</div>
+                    <div className="font-medium break-all">antonije@mirkovic.no</div>
                   </div>
                   <div className="space-y-1">
                     <div className="text-sm text-zinc-500">Location</div>

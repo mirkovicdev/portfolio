@@ -141,7 +141,7 @@ export function GrindSection() {
     }
   }
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
     const rect = sliderRef.current!.getBoundingClientRect()
 
@@ -161,6 +161,28 @@ export function GrindSection() {
 
     document.addEventListener("mousemove", handleMouseMove)
     document.addEventListener("mouseup", handleMouseUp)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsDragging(true)
+    const rect = sliderRef.current!.getBoundingClientRect()
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault()
+      const x = e.touches[0].clientX - rect.left
+      const percentage = (x / rect.width - 0.5) * 100
+      const clampedValue = Math.max(-50, Math.min(50, percentage))
+      handleSliderChange(clampedValue)
+    }
+
+    const handleTouchEnd = () => {
+      setIsDragging(false)
+      document.removeEventListener("touchmove", handleTouchMove)
+      document.removeEventListener("touchend", handleTouchEnd)
+    }
+
+    document.addEventListener("touchmove", handleTouchMove, { passive: false })
+    document.addEventListener("touchend", handleTouchEnd)
   }
 
   return (
@@ -257,6 +279,7 @@ export function GrindSection() {
               }`,
             }}
             onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             animate={{
