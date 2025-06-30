@@ -14,6 +14,7 @@ import { SectionHeading } from "@/components/section-heading"
 import { GlassmorphicCard } from "@/components/glassmorphic-card"
 import { GrindSection } from "@/components/grind-section"
 import { KnowledgeBrain } from "@/components/knowledge-brain"
+import { Marquee } from "@/components/magicui/marquee"
 
 export default function Portfolio() {
   return (
@@ -287,19 +288,52 @@ export default function Portfolio() {
         <div className="container relative z-10">
           <SectionHeading title="My Skills" subtitle="Technologies I work with" />
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-16">
-            <SkillBadge name="JavaScript" level={100} />
-            <SkillBadge name="TypeScript" level={100} />
-            <SkillBadge name="React" level={100} />
-            <SkillBadge name="Next.js" level={100} />
-            <SkillBadge name="Python" level={100} />
-            <SkillBadge name="HTML/CSS" level={100} />
-            <SkillBadge name="Tailwind CSS" level={100} />
-            <SkillBadge name="LaTeX" level={100} />
-            <SkillBadge name="C++" level={95} />
-            <SkillBadge name="PostgreSQL" level={75} />
-            <SkillBadge name="Julia" level={60} />
-            <SkillBadge name="Git" level={60} />
+          {/* Desktop: Two horizontal rows */}
+          <div className="hidden md:block mt-16">
+            <div className="relative flex w-full flex-col items-center justify-center overflow-hidden">
+              <Marquee pauseOnHover className="[--duration:20s]">
+                <SkillBadge name="JavaScript" level={100} />
+                <SkillBadge name="TypeScript" level={100} />
+                <SkillBadge name="React" level={100} />
+                <SkillBadge name="Next.js" level={100} />
+                <SkillBadge name="Python" level={100} />
+                <SkillBadge name="HTML/CSS" level={100} />
+              </Marquee>
+              <Marquee reverse pauseOnHover className="[--duration:20s]">
+                <SkillBadge name="Tailwind CSS" level={100} />
+                <SkillBadge name="LaTeX" level={100} />
+                <SkillBadge name="C++" level={95} />
+                <SkillBadge name="PostgreSQL" level={75} />
+                <SkillBadge name="Julia" level={60} />
+                <SkillBadge name="Git" level={60} />
+              </Marquee>
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-zinc-900"></div>
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-zinc-900"></div>
+            </div>
+          </div>
+
+          {/* Mobile: Two vertical columns */}
+          <div className="md:hidden mt-16">
+            <div className="relative flex h-[500px] w-full flex-row items-center justify-center overflow-hidden">
+              <Marquee pauseOnHover vertical className="[--duration:20s]">
+                <SkillBadge name="JavaScript" level={100} />
+                <SkillBadge name="TypeScript" level={100} />
+                <SkillBadge name="React" level={100} />
+                <SkillBadge name="Next.js" level={100} />
+                <SkillBadge name="Python" level={100} />
+                <SkillBadge name="HTML/CSS" level={100} />
+              </Marquee>
+              <Marquee reverse pauseOnHover vertical className="[--duration:20s]">
+                <SkillBadge name="Tailwind CSS" level={100} />
+                <SkillBadge name="LaTeX" level={100} />
+                <SkillBadge name="C++" level={95} />
+                <SkillBadge name="PostgreSQL" level={75} />
+                <SkillBadge name="Julia" level={60} />
+                <SkillBadge name="Git" level={60} />
+              </Marquee>
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-zinc-900"></div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-zinc-900"></div>
+            </div>
           </div>
         </div>
       </section>
