@@ -116,3 +116,19 @@
 .\[animation-direction\:reverse\] {
   animation-direction: reverse !important;
 }
+
+/* Add this to your globals.css file */
+.custom-scrollbar-phthalo::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar-phthalo::-webkit-scrollbar-track {
+  background: rgba(39, 39, 42, 0.3);
+  border-radius: 2px;
+}
+.custom-scrollbar-phthalo::-webkit-scrollbar-thumb {
+  background: rgba(38, 128, 74, 0.6);
+  border-radius: 2px;
+}
+.custom-scrollbar-phthalo::-webkit-scrollbar-thumb:hover {
+  background: rgba(38, 128, 74, 0.8);
+}

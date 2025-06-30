@@ -15,6 +15,7 @@ import { GlassmorphicCard } from "@/components/glassmorphic-card"
 import { GrindSection } from "@/components/grind-section"
 import { KnowledgeBrain } from "@/components/knowledge-brain"
 import { Marquee } from "@/components/magicui/marquee"
+import { ECGProjectCard } from "@/components/ECGProjectCard"
 
 export default function Portfolio() {
   return (
@@ -349,7 +350,7 @@ export default function Portfolio() {
           <SectionHeading title="Featured Projects" subtitle="Some of my recent work" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-16">
-            <ProjectCard
+            <ECGProjectCard
               title="Polar H10 ECG Arrhythmia Detector"
               description="A real-time ECG monitoring application that streams live cardiac data from Polar H10 chest straps and performs intelligent arrhythmia detection using advanced signal processing algorithms. Tracks PVC burden, detects patterns like bigeminy and trigeminy, and supports session-based analysis with planned alarm functionality for high-risk events."
               tags={["Next.js", "TypeScript", "Expo", "Python", "IOS Development"]}
