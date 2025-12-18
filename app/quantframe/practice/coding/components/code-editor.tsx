@@ -1,18 +1,12 @@
 // app/quantframe/practice/coding/components/code-editor.tsx
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Editor from '@monaco-editor/react'
+import { usePyodide } from '@/lib/pyodide'
 import { Button } from '@/components/ui/button'
 import { Play, RotateCcw, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import confetti from 'canvas-confetti'
-
-// Extend Window interface for Pyodide
-declare global {
-  interface Window {
-    loadPyodide: any
-  }
-}
 
 interface TestCase {
   input: any
@@ -44,79 +38,17 @@ interface CodeEditorProps {
 // Helper to process text with proper newlines and code blocks
 const formatText = (text: string) => {
   if (!text) return ''
-  
+
   // Replace literal \n with actual newlines
   return text.replace(/\\n/g, '\n')
 }
 
-// Helper to render code blocks in problem text
-const renderProblemText = (text: string) => {
-  if (!text) return null
-  
-  const formatted = formatText(text)
-  const parts = formatted.split(/(`[^`]+`)/g)
-  
-  return (
-    <div className="whitespace-pre-wrap">
-      {parts.map((part, idx) => {
-        if (part.startsWith('`') && part.endsWith('`')) {
-          const code = part.slice(1, -1)
-          return (
-            <code key={idx} className="px-2 py-0.5 bg-zinc-800 rounded text-phthalo-300 font-mono text-sm">
-              {code}
-            </code>
-          )
-        }
-        return <span key={idx}>{part}</span>
-      })}
-    </div>
-  )
-}
-
 export function CodeEditor({ starterCode, testCases, onSuccess, disabled, xpValue, xpForfeited, isCompleted }: CodeEditorProps) {
+  const { pyodide, isReady: pyodideReady } = usePyodide()
   const [code, setCode] = useState(formatText(starterCode))
   const [running, setRunning] = useState(false)
   const [testResults, setTestResults] = useState<TestResult[]>([])
   const [allTestsPassed, setAllTestsPassed] = useState(false)
-  const [pyodideReady, setPyodideReady] = useState(false)
-  const pyodideRef = useRef<any>(null)
-
-  // Load Pyodide on mount
-  useEffect(() => {
-    async function loadPyodide() {
-      if (pyodideRef.current) return
-
-      try {
-        // Wait for window.loadPyodide to be available
-        let attempts = 0
-        const maxAttempts = 50 // 5 seconds max wait
-
-        while (!window.loadPyodide && attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-          attempts++
-        }
-
-        if (!window.loadPyodide) {
-          console.error('Pyodide script failed to load after 5 seconds')
-          return
-        }
-
-        const pyodide = await window.loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-        })
-
-        // Load commonly needed packages
-        await pyodide.loadPackage(['numpy', 'pandas'])
-
-        pyodideRef.current = pyodide
-        setPyodideReady(true)
-      } catch (error) {
-        console.error('Failed to load Pyodide:', error)
-      }
-    }
-
-    loadPyodide()
-  }, [])
 
   // Reset state when problem is reset (isCompleted changes from true to false)
   useEffect(() => {
@@ -130,20 +62,24 @@ export function CodeEditor({ starterCode, testCases, onSuccess, disabled, xpValu
   }, [isCompleted, starterCode])
 
   const runTests = async () => {
-    if (!pyodideRef.current || disabled) return
-    
+    if (!pyodide || disabled) return
+
     setRunning(true)
     setTestResults([])
-    
+
     const results: TestResult[] = []
     let allPassed = true
 
     try {
-      const pyodide = pyodideRef.current
-      
       console.log('🔍 Executing user code...')
-      
+
       try {
+        // Pre-import common modules and typing utilities
+        await pyodide.runPythonAsync(`
+from typing import List, Dict, Tuple, Optional, Any, Union, Set
+import numpy as np
+import pandas as pd
+`)
         // Execute user code
         await pyodide.runPythonAsync(code)
       } catch (error: any) {

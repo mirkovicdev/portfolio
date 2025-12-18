@@ -16,26 +16,35 @@ export async function GET() {
   try {
     console.log('Querying Supabase...')
 
-    // First get the count
+    // First get the total count
     const { count } = await supabase
       .from('quiz_responses')
       .select('*', { count: 'exact', head: true })
 
     console.log('Total count:', count)
 
-    // Fetch all records using range (0 to count)
-    const { data, error } = await supabase
-      .from('quiz_responses')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(0, count || 10000)
+    // Supabase has a 1000 row limit per request, so we need to paginate
+    const PAGE_SIZE = 1000
+    const totalCount = count || 0
+    const allData: any[] = []
 
-    console.log('Supabase response:', { data, error })
-    console.log('Number of records:', data?.length || 0)
+    // Fetch all records in chunks of 1000
+    for (let offset = 0; offset < totalCount; offset += PAGE_SIZE) {
+      const { data: chunk, error } = await supabase
+        .from('quiz_responses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1)
 
-    if (error) throw error
+      if (error) throw error
+      if (chunk) allData.push(...chunk)
 
-    return NextResponse.json({ data })
+      console.log(`Fetched rows ${offset} to ${offset + (chunk?.length || 0)}`)
+    }
+
+    console.log('Total records fetched:', allData.length)
+
+    return NextResponse.json({ data: allData })
   } catch (error) {
     console.error('Error fetching responses:', error)
     return NextResponse.json(

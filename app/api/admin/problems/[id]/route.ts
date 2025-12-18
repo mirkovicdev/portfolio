@@ -2,7 +2,18 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/admin-auth'
 import { createClient } from '@supabase/supabase-js'
 
-export async function POST(request: Request) {
+// Get Supabase admin client
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const session = await getSession()
 
   if (!session) {
@@ -13,18 +24,61 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { id } = await params
+    const supabase = getSupabaseAdmin()
+
+    // Try to delete from math_problems first
+    const { error: mathError } = await supabase
+      .from('math_problems')
+      .delete()
+      .eq('id', id)
+
+    if (mathError) {
+      // If not found in math_problems, try coding_problems
+      const { error: codingError } = await supabase
+        .from('coding_problems')
+        .delete()
+        .eq('id', id)
+
+      if (codingError) {
+        throw new Error('Problem not found or could not be deleted')
+      }
+    }
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    console.error('Error deleting problem:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to delete problem' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession()
+
+  if (!session) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    )
+  }
+
+  try {
+    const { id } = await params
     const body = await request.json()
     const { problemType, ...problemData } = body
 
-    // Use service role key for admin operations (bypasses RLS)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const supabase = getSupabaseAdmin()
 
     if (problemType === 'math') {
-      // Build the insert object
-      const insertData: Record<string, any> = {
+      // Build the update object
+      const updateData: Record<string, any> = {
         title: problemData.title || null,
         problem: problemData.problem,
         hint: problemData.hint,
@@ -32,29 +86,29 @@ export async function POST(request: Request) {
         category: problemData.category,
         difficulty: problemData.difficulty,
         xp: parseInt(problemData.xp),
-        lesson_id: problemData.lesson_id || null,
-        question_type: problemData.question_type || 'free_text'
+        question_type: problemData.question_type || 'free_text',
+        updated_at: new Date().toISOString()
       }
 
       // Handle multiple choice vs free text
       if (problemData.question_type === 'multiple_choice') {
-        // Parse options if they're a string
         let options = problemData.options
         if (typeof options === 'string') {
           options = JSON.parse(options)
         }
-        insertData.options = options
-        insertData.correct_option_index = parseInt(problemData.correct_option_index)
-        // Set answer to the correct option text for consistency
-        insertData.answer = options[insertData.correct_option_index]
+        updateData.options = options
+        updateData.correct_option_index = parseInt(problemData.correct_option_index)
+        updateData.answer = options[updateData.correct_option_index]
       } else {
-        insertData.answer = problemData.answer
+        updateData.answer = problemData.answer
+        updateData.options = null
+        updateData.correct_option_index = null
       }
 
-      // Insert math problem
       const { data, error } = await supabase
         .from('math_problems')
-        .insert(insertData)
+        .update(updateData)
+        .eq('id', id)
         .select()
         .single()
 
@@ -62,16 +116,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ data, success: true })
 
     } else if (problemType === 'coding') {
-      // Parse test cases if they're a string
       let testCases = problemData.test_cases
       if (typeof testCases === 'string') {
         testCases = JSON.parse(testCases)
       }
 
-      // Insert coding problem
       const { data, error } = await supabase
         .from('coding_problems')
-        .insert({
+        .update({
           title: problemData.title || null,
           problem: problemData.problem,
           hint: problemData.hint,
@@ -84,6 +136,7 @@ export async function POST(request: Request) {
           problem_number: problemData.problem_number ? parseInt(problemData.problem_number) : null,
           language: problemData.language || 'python'
         })
+        .eq('id', id)
         .select()
         .single()
 
@@ -97,9 +150,9 @@ export async function POST(request: Request) {
       )
     }
   } catch (error) {
-    console.error('Error creating problem:', error)
+    console.error('Error updating problem:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create problem' },
+      { error: error instanceof Error ? error.message : 'Failed to update problem' },
       { status: 500 }
     )
   }

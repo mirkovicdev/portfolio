@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import '../globals.css'
 import { createClient } from '@/lib/supabase/server'
 import { ConditionalSidebar } from './components/conditional-sidebar'
+import { PyodideWrapper } from './components/PyodideWrapper'
 
 export const metadata: Metadata = {
   title: 'QuantFrame - Break into Quant',
@@ -14,7 +15,7 @@ export default async function QuantframeLayout({
   children: React.ReactNode
 }>) {
   const supabase = await createClient()
-  
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -30,9 +31,11 @@ export default async function QuantframeLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-zinc-900 to-black text-white">
-      <ConditionalSidebar userEmail={user?.email} hasPaid={hasPaid || false}>
-        {children}
-      </ConditionalSidebar>
+      <PyodideWrapper>
+        <ConditionalSidebar userEmail={user?.email} hasPaid={hasPaid || false}>
+          {children}
+        </ConditionalSidebar>
+      </PyodideWrapper>
     </div>
   )
 }

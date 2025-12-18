@@ -1,7 +1,6 @@
 // app/quantframe/problems/coding/layout.tsx
-'use client'
+// Pyodide is now loaded globally via PyodideProvider in quantframe layout
 
-import Script from 'next/script'
 import { ProblemLayoutWrapper } from '../components/problem-layout-wrapper'
 
 export default function CodingProblemsLayout({
@@ -10,20 +9,8 @@ export default function CodingProblemsLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"
-        strategy="lazyOnload"
-        onLoad={() => {
-          console.log('Pyodide script loaded')
-        }}
-        onError={(e) => {
-          console.error('Failed to load Pyodide:', e)
-        }}
-      />
-      <ProblemLayoutWrapper problemType="coding">
-        {children}
-      </ProblemLayoutWrapper>
-    </>
+    <ProblemLayoutWrapper problemType="coding">
+      {children}
+    </ProblemLayoutWrapper>
   )
 }

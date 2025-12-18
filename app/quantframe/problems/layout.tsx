@@ -1,18 +1,10 @@
-// app/quantframe/problems/coding/layout.tsx
-import Script from 'next/script'
+// app/quantframe/problems/layout.tsx
+// Pyodide is now loaded globally via PyodideProvider in quantframe layout
 
-export default function CodingProblemsLayout({
+export default function ProblemsLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"
-        strategy="beforeInteractive"
-      />
-      {children}
-    </>
-  )
+  return <>{children}</>
 }

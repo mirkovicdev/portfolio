@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { ExerciseCodeBlock as ExerciseCodeBlockType } from '@/lib/projects/types';
+import { usePyodide } from '@/lib/pyodide';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -27,13 +28,6 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-// Extend Window interface for Pyodide
-declare global {
-  interface Window {
-    loadPyodide: any;
-  }
-}
-
 interface TestResult {
   passed: boolean;
   description: string;
@@ -56,54 +50,17 @@ export function ExerciseCodeBlock({
   onComplete,
   savedCode,
 }: ExerciseCodeBlockProps) {
+  const { pyodide, isReady: pyodideReady } = usePyodide();
   const [code, setCode] = useState(savedCode || block.starterCode);
   const [running, setRunning] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [allTestsPassed, setAllTestsPassed] = useState(isCompleted);
-  const [pyodideReady, setPyodideReady] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [showSolutionDialog, setShowSolutionDialog] = useState(false);
-  const pyodideRef = useRef<any>(null);
-
-  // Load Pyodide on mount
-  useEffect(() => {
-    async function loadPyodide() {
-      if (pyodideRef.current) return;
-
-      try {
-        // Wait for window.loadPyodide to be available
-        let attempts = 0;
-        const maxAttempts = 50;
-
-        while (!window.loadPyodide && attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          attempts++;
-        }
-
-        if (!window.loadPyodide) {
-          console.error('Pyodide script failed to load');
-          return;
-        }
-
-        const pyodide = await window.loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
-        });
-
-        await pyodide.loadPackage(['numpy', 'pandas']);
-
-        pyodideRef.current = pyodide;
-        setPyodideReady(true);
-      } catch (error) {
-        console.error('Failed to load Pyodide:', error);
-      }
-    }
-
-    loadPyodide();
-  }, []);
 
   const runTests = async () => {
-    if (!pyodideRef.current || allTestsPassed) return;
+    if (!pyodide || allTestsPassed) return;
 
     setRunning(true);
     setTestResults([]);
@@ -112,7 +69,6 @@ export function ExerciseCodeBlock({
     let allPassed = true;
 
     try {
-      const pyodide = pyodideRef.current;
 
       // Execute user code
       try {

@@ -20,6 +20,9 @@ interface MathProblem {
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   xp: number
   problem_number?: number
+  question_type?: 'free_text' | 'multiple_choice'
+  options?: string[]
+  correct_option_index?: number
 }
 
 interface MathCardProps {
@@ -163,12 +166,15 @@ const checkAnswerMatch = (userInput: string, correctAnswer: string): boolean => 
 
 export function MathCard({ problem, completed, onComplete }: MathCardProps) {
   const [answer, setAnswer] = useState('')
+  const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [status, setStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle')
   const [submitting, setSubmitting] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [showSolution, setShowSolution] = useState(false)
   const [xpForfeited, setXpForfeited] = useState(false)
   const [showWarning, setShowWarning] = useState(false)
+
+  const isMultipleChoice = problem.question_type === 'multiple_choice' && problem.options && problem.options.length > 0
 
   // Reset all state when problem is reset (completed changes from true to false)
   useEffect(() => {
@@ -177,6 +183,7 @@ export function MathCard({ problem, completed, onComplete }: MathCardProps) {
     } else {
       // Reset all internal state when problem is reset
       setAnswer('')
+      setSelectedOption(null)
       setStatus('idle')
       setShowHint(false)
       setShowSolution(false)
@@ -186,27 +193,41 @@ export function MathCard({ problem, completed, onComplete }: MathCardProps) {
   }, [completed])
 
   const handleSubmit = async () => {
-    if (!answer.trim() || completed) return
-    
+    // For multiple choice, check if an option is selected
+    // For free text, check if answer is not empty
+    if (isMultipleChoice) {
+      if (selectedOption === null || completed) return
+    } else {
+      if (!answer.trim() || completed) return
+    }
+
     setSubmitting(true)
-    
-    const isCorrect = checkAnswerMatch(answer, problem.answer)
-    
+
+    let isCorrect = false
+
+    if (isMultipleChoice) {
+      // Check if selected option matches correct_option_index
+      isCorrect = selectedOption === problem.correct_option_index
+    } else {
+      // Use existing answer matching logic for free text
+      isCorrect = checkAnswerMatch(answer, problem.answer)
+    }
+
     if (isCorrect) {
       setStatus('correct')
-      
+
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
         colors: ['#26804a', '#2d9659', '#34ac68']
       })
-      
+
       await onComplete()
     } else {
       setStatus('incorrect')
     }
-    
+
     setSubmitting(false)
   }
 
@@ -258,24 +279,83 @@ export function MathCard({ problem, completed, onComplete }: MathCardProps) {
 
         <div className="mb-6 p-4 bg-zinc-800/30 border border-zinc-700 rounded-lg">
           <h3 className="text-sm font-semibold mb-3 text-white">Your Answer</h3>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-              placeholder="Enter answer"
-              disabled={completed}
-              className="flex-1 px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-phthalo-500 disabled:opacity-50"
-            />
-            <Button
-              onClick={handleSubmit}
-              disabled={!answer.trim() || submitting || completed}
-              className="bg-gradient-to-r from-phthalo-600 to-phthalo-800 hover:from-phthalo-700 hover:to-phthalo-900 disabled:opacity-50"
-            >
-              {submitting ? 'Checking...' : 'Submit'}
-            </Button>
-          </div>
+
+          {isMultipleChoice ? (
+            // Multiple Choice UI
+            <div className="space-y-2">
+              {problem.options!.map((option, index) => {
+                const isSelected = selectedOption === index
+                const isCorrectOption = index === problem.correct_option_index
+                const showCorrect = status === 'correct' || (status === 'incorrect' && isCorrectOption)
+
+                return (
+                  <button
+                    key={index}
+                    onClick={() => !completed && setSelectedOption(index)}
+                    disabled={completed}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                      completed
+                        ? isCorrectOption
+                          ? 'bg-green-500/10 border-green-500/40 text-green-400'
+                          : isSelected
+                            ? 'bg-red-500/10 border-red-500/40 text-red-400'
+                            : 'bg-zinc-900/50 border-zinc-700 text-zinc-500'
+                        : isSelected
+                          ? 'bg-phthalo-500/20 border-phthalo-500 text-white'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800/50'
+                    } disabled:cursor-not-allowed`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        completed
+                          ? isCorrectOption
+                            ? 'border-green-500 bg-green-500'
+                            : isSelected
+                              ? 'border-red-500 bg-red-500'
+                              : 'border-zinc-600'
+                          : isSelected
+                            ? 'border-phthalo-500 bg-phthalo-500'
+                            : 'border-zinc-600'
+                      }`}>
+                        {(isSelected || (completed && isCorrectOption)) && (
+                          <div className="w-2 h-2 rounded-full bg-white" />
+                        )}
+                      </div>
+                      <span className="text-sm">{option}</span>
+                    </div>
+                  </button>
+                )
+              })}
+
+              <Button
+                onClick={handleSubmit}
+                disabled={selectedOption === null || submitting || completed}
+                className="w-full mt-3 bg-gradient-to-r from-phthalo-600 to-phthalo-800 hover:from-phthalo-700 hover:to-phthalo-900 disabled:opacity-50"
+              >
+                {submitting ? 'Checking...' : 'Submit'}
+              </Button>
+            </div>
+          ) : (
+            // Free Text UI
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+                placeholder="Enter answer"
+                disabled={completed}
+                className="flex-1 px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-phthalo-500 disabled:opacity-50"
+              />
+              <Button
+                onClick={handleSubmit}
+                disabled={!answer.trim() || submitting || completed}
+                className="bg-gradient-to-r from-phthalo-600 to-phthalo-800 hover:from-phthalo-700 hover:to-phthalo-900 disabled:opacity-50"
+              >
+                {submitting ? 'Checking...' : 'Submit'}
+              </Button>
+            </div>
+          )}
 
           {status === 'correct' && (
             <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-3">
