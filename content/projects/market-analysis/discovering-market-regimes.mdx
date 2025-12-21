@@ -1,6 +1,6 @@
 # Discovering Market Regimes Through Structure
 
-Markets don't behave the same way every day. Sometimes everything moves together—up or down in unison. Other times, sectors rotate: tech falls while energy rises. These patterns repeat. Not exactly, but structurally.
+Markets don't behave the same way every day. Sometimes everything moves together, up or down in unison. Other times, sectors rotate: tech falls while energy rises. These patterns repeat. Not exactly, but structurally.
 
 Your task in this project is to **discover** whether market movements live in a few dominant patterns, and if so, to **see** those patterns as geometric structure. You will not predict anything. You will not optimize anything. You will simply look at real market behavior and ask: *what structure is hiding in these movements?*
 
@@ -12,11 +12,11 @@ The only tools you need are vectors, matrices, and the geometric intuition you'v
 
 Before we touch any math, let's build intuition about what we're looking for.
 
-Imagine watching the market over 500 trading days. Each day, you record how each of 10 assets moved—some up, some down, by various amounts. That's 500 observations of 10-dimensional behavior.
+Imagine watching the market over 500 trading days. Each day, you record how each of 10 assets moved, some up, some down, by various amounts. That's 500 observations of 10-dimensional behavior.
 
 Now ask: **do those 500 days look random, or do they cluster into a few recurring patterns?**
 
-A "regime" isn't about whether prices go up or down. It's about the **structure** of how assets move **together**. Two days belong to the same regime if their movements share the same underlying pattern—even if the magnitudes differ.
+A "regime" isn't about whether prices go up or down. It's about the **structure** of how assets move **together**. Two days belong to the same regime if their movements share the same underlying pattern, even if the magnitudes differ.
 
 <TextResponse
   id="text-0-1"
@@ -24,20 +24,20 @@ A "regime" isn't about whether prices go up or down. It's about the **structure*
   placeholder="Think about patterns, not prices..."
   maxLength={400}
   label="Reflection"
-  referenceAnswer="Two days belong to the same regime if the assets moved in similar relative proportions—for example, both days might show tech outperforming energy, even if Day 1 was a +2% day and Day 2 was a -1% day. The regime is about the direction of movement in asset space, not the magnitude or sign."
+  referenceAnswer="Two days belong to the same regime if the assets moved in similar relative proportions, for example, both days might show tech outperforming energy, even if Day 1 was a +2% day and Day 2 was a -1% day. The regime is about the direction of movement in asset space, not the magnitude or sign."
 />
 
 <Quiz
   id="quiz-0-2"
   question="Which statement best describes a market regime?"
   options={[
-    "A period when prices are predictable",
+    "A period when asset prices become easier to predict",
     "A recurring pattern in how assets move relative to each other",
-    "A period of low market movement",
-    "A random collection of daily returns"
+    "A stretch of time when overall market volatility stays low",
+    "A collection of daily returns that follow no particular structure"
   ]}
   correct={1}
-  explanation="A regime is defined by the structural pattern of how assets move together—not by predictability, volatility level, or randomness. The same regime can appear in both up and down markets if the relative movements between assets follow the same pattern."
+  explanation="A regime is defined by the structural pattern of how assets move together, not by predictability, volatility level, or randomness. The same regime can appear in both up and down markets if the relative movements between assets follow the same pattern."
 />
 
 ---
@@ -58,94 +58,220 @@ where $r_{t,i}$ is the return of asset $i$ on day $t$.
 
 Stack all your daily vectors as rows of a matrix:
 
-$$R = \begin{pmatrix} — & \mathbf{r}_1^\top & — \\ — & \mathbf{r}_2^\top & — \\ & \vdots & \\ — & \mathbf{r}_T^\top & — \end{pmatrix}$$
+$$R = \begin{pmatrix} ,  & \mathbf{r}_1^\top & ,  \\ ,  & \mathbf{r}_2^\top & ,  \\ & \vdots & \\ ,  & \mathbf{r}_T^\top & ,  \end{pmatrix}$$
 
 This gives you a $T \times n$ matrix where $T$ is the number of days and $n$ is the number of assets.
 
+### Exercise 1: Creating a Return Vector
+
+Let's start with the basics. A single trading day produces a **vector** of returns, one number per asset.
+
 <CodeExercise
-  id="code-1-1"
+  id="code-1-1a"
   starterCode={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
+def create_return_vector(returns_list):
     """
-    Generate synthetic market return data with regime structure.
-
-    This simulates a market where movements tend to follow
-    a few dominant patterns rather than being fully random.
+    Convert a list of daily returns into a numpy vector.
 
     Args:
-        n_days: Number of trading days
-        n_assets: Number of assets
-        seed: Random seed for reproducibility
+        returns_list: A Python list of returns, e.g. [0.02, -0.01, 0.03]
 
     Returns:
-        returns: (n_days, n_assets) matrix of daily returns
+        A 1D numpy array containing the same values
+
+    Example:
+        >>> create_return_vector([0.02, -0.01, 0.03])
+        array([ 0.02, -0.01,  0.03])
     """
-    np.random.seed(seed)
-
-    # Create 3 hidden "regime directions" that drive most movement
-    # These are the dominant patterns (not known to us yet)
-    regime_directions = np.random.randn(3, n_assets)
-
-    # Normalize each direction
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-
-    # Each day is a mix of regime directions plus small noise
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-
-    # Add small idiosyncratic noise
-    noise = np.random.randn(n_days, n_assets) * 0.3
-
-    returns = structured_part + noise
-
-    return returns
-
-# Generate the market data
-returns = generate_market_data()
-
-# TODO: Print the shape of the returns matrix
-# What does each dimension represent?
-print(f"Returns matrix shape: {returns.shape}")
-print(f"Number of days (rows): ???")  # Replace ???
-print(f"Number of assets (columns): ???")  # Replace ???`}
+    # TODO: Convert the list to a numpy array
+    pass`}
   solution={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
+def create_return_vector(returns_list):
     """
-    Generate synthetic market return data with regime structure.
+    Convert a list of daily returns into a numpy vector.
     """
-    np.random.seed(seed)
-
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-
-    returns = structured_part + noise
-    return returns
-
-returns = generate_market_data()
-
-print(f"Returns matrix shape: {returns.shape}")
-print(f"Number of days (rows): {returns.shape[0]}")
-print(f"Number of assets (columns): {returns.shape[1]}")`}
-  hint="The shape gives you (rows, columns). Think about what each axis represents in our setup."
-  tests={[]}
+    return np.array(returns_list)`}
+  hint="Use np.array() to convert a Python list to a numpy array."
+  tests={[
+    {
+      "input": [[0.02, -0.01, 0.03]],
+      "expected": [0.02, -0.01, 0.03],
+      "hidden": false,
+      "description": "Basic 3-asset return vector"
+    },
+    {
+      "input": [[0.5, -0.5]],
+      "expected": [0.5, -0.5],
+      "hidden": false,
+      "description": "2-asset return vector"
+    },
+    {
+      "input": [[0.01, 0.02, 0.03, 0.04, 0.05]],
+      "expected": [0.01, 0.02, 0.03, 0.04, 0.05],
+      "hidden": true,
+      "description": "5-asset return vector"
+    }
+  ]}
 />
 
-<TextResponse
-  id="text-1-2"
-  question="In the returns matrix R, what does a single row represent? What does a single column represent?"
-  placeholder="Think about days and assets..."
-  maxLength={300}
-  label="Comprehension"
-  referenceAnswer="A single row represents one trading day—a vector showing how all assets moved on that day. A single column represents one asset—a vector showing how that asset moved across all days."
+### Exercise 2: Stacking Vectors into a Matrix
+
+Now suppose you have returns from multiple days, where **each day is already a numpy array**. Your job is to stack these row vectors into a single matrix.
+
+<CodeExercise
+  id="code-1-1b"
+  starterCode={`import numpy as np
+
+def stack_return_vectors(day_vectors):
+    """
+    Stack multiple day vectors (numpy arrays) into a returns matrix.
+
+    Args:
+        day_vectors: A list of 1D numpy arrays, each representing one day's returns
+                    e.g. [np.array([0.1, 0.2]), np.array([0.3, 0.4])]
+
+    Returns:
+        A 2D numpy array of shape (n_days, n_assets) where each row is a day
+
+    Example:
+        >>> day1 = np.array([0.01, -0.02])
+        >>> day2 = np.array([0.03, 0.01])
+        >>> stack_return_vectors([day1, day2])
+        array([[ 0.01, -0.02],
+               [ 0.03,  0.01]])
+    """
+    # TODO: Stack the vectors into a matrix
+    # Hint: Look up np.vstack() or np.stack()
+    pass`}
+  solution={`import numpy as np
+
+def stack_return_vectors(day_vectors):
+    """
+    Stack multiple day vectors (numpy arrays) into a returns matrix.
+    """
+    return np.vstack(day_vectors)`}
+  hint="np.vstack() stacks arrays vertically (as rows). Alternatively, np.stack(day_vectors, axis=0) works too."
+  tests={[
+    {
+      "input": ["[np.array([0.1, 0.2]), np.array([0.3, 0.4])]"],
+      "expected": [[0.1, 0.2], [0.3, 0.4]],
+      "hidden": false,
+      "description": "Stack 2 day vectors (2 assets each)"
+    },
+    {
+      "input": ["[np.array([0.01, 0.02, 0.03]), np.array([-0.01, 0.0, 0.01]), np.array([0.02, -0.02, 0.0])]"],
+      "expected": [[0.01, 0.02, 0.03], [-0.01, 0.0, 0.01], [0.02, -0.02, 0.0]],
+      "hidden": false,
+      "description": "Stack 3 day vectors (3 assets each)"
+    },
+    {
+      "input": ["[np.array([1.0]), np.array([2.0]), np.array([3.0]), np.array([4.0])]"],
+      "expected": [[1.0], [2.0], [3.0], [4.0]],
+      "hidden": true,
+      "description": "Stack 4 day vectors (1 asset each)"
+    }
+  ]}
 />
+
+### Exercise 3: Extracting Matrix Dimensions
+
+Given a returns matrix $R$, you need to know how many days and assets it contains. This is fundamental for all subsequent analysis.
+
+<CodeExercise
+  id="code-1-1c"
+  starterCode={`import numpy as np
+
+def get_dimensions(R):
+    """
+    Extract the number of days and assets from a returns matrix.
+
+    Args:
+        R: A 2D numpy array of shape (n_days, n_assets)
+
+    Returns:
+        A tuple (n_days, n_assets)
+
+    Example:
+        >>> R = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+        >>> get_dimensions(R)
+        (2, 3)  # 2 days, 3 assets
+    """
+    # TODO: Return a tuple of (n_days, n_assets)
+    # Hint: Use R.shape
+    pass`}
+  solution={`import numpy as np
+
+def get_dimensions(R):
+    """
+    Extract the number of days and assets from a returns matrix.
+    """
+    return (R.shape[0], R.shape[1])`}
+  hint="R.shape gives you a tuple (rows, columns). Rows = days, columns = assets."
+  tests={[
+    {
+      "input": ["np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])"],
+      "expected": [2, 3],
+      "hidden": false,
+      "description": "2 days × 3 assets"
+    },
+    {
+      "input": ["np.zeros((500, 10))"],
+      "expected": [500, 10],
+      "hidden": false,
+      "description": "500 days × 10 assets"
+    },
+    {
+      "input": ["np.ones((100, 5))"],
+      "expected": [100, 5],
+      "hidden": true,
+      "description": "100 days × 5 assets"
+    }
+  ]}
+/>
+
+<Quiz
+  id="quiz-1-2"
+  question="In the returns matrix R, what does a single row represent and what does a single column represent?"
+  options={[
+    "Row = one asset's returns over time; Column = one day's returns across assets",
+    "Row = one day's returns across assets; Column = one asset's returns over time",
+    "Row = the mean return for each asset; Column = the variance for each day",
+    "Row = cumulative returns; Column = daily returns"
+  ]}
+  correct={1}
+  explanation="Each row is one trading day (a vector showing how all assets moved that day). Each column is one asset (a vector showing how that asset moved across all days). This row = observation, column = feature convention is standard in data science."
+/>
+
+### Visualizing the Matrix Structure
+
+If you mixed up rows and columns in the question above, you're not alone! It's one of the most common confusions in linear algebra. Let's make it crystal clear.
+
+Here's a returns matrix $R$ with 3 days and 4 assets:
+
+$$
+R = \begin{pmatrix}
+r_{1,1} & r_{1,2} & r_{1,3} & r_{1,4} \\
+r_{2,1} & r_{2,2} & r_{2,3} & r_{2,4} \\
+r_{3,1} & r_{3,2} & r_{3,3} & r_{3,4}
+\end{pmatrix}
+\begin{array}{l}
+\leftarrow \text{Day 1} \\
+\leftarrow \text{Day 2} \\
+\leftarrow \text{Day 3}
+\end{array}
+$$
+
+$$
+\underbrace{\text{Asset 1} \quad \text{Asset 2} \quad \text{Asset 3} \quad \text{Asset 4}}_{\text{columns}}
+$$
+
+**Reading the matrix:**
+- **Row $i$** → all asset returns on day $i$ (one snapshot in time)
+- **Column $j$** → asset $j$'s returns across all days (one asset's history)
+
+So $r_{2,3}$ is the return of **Asset 3** on **Day 2**.
 
 <Quiz
   id="quiz-1-3"
@@ -157,21 +283,32 @@ print(f"Number of assets (columns): {returns.shape[1]}")`}
     "The days occurred close together in time"
   ]}
   correct={2}
-  explanation="Vectors pointing in the same direction have proportional components. If $\\mathbf{r}_1 = 2\\mathbf{r}_2$, then every asset's return on day 1 is twice its return on day 2. The pattern of relative movements is identical—this is what we mean by 'same regime'."
+  explanation="Vectors pointing in the same direction have proportional components. If r₁ = 2r₂, then every asset's return on day 1 is twice its return on day 2. The pattern of relative movements is identical, this is what we mean by 'same regime'."
 />
+
+### What You Just Built
+
+You've learned to **represent market data as geometric objects**. Here's what each piece does:
+
+**Return vectors** (`np.array([r1, r2, ..., rn])`): A single day's returns become a point in n-dimensional space. If you have 10 assets, each day is a point in $\mathbb{R}^{10}$. This isn't just notation, it lets you use geometric intuition. Two days are "similar" if their points are close or point in the same direction.
+
+**Returns matrix** (`np.vstack([day1, day2, ...])`): Stacking days as rows creates a (T × n) matrix where T is days and n is assets. Row i is day i. Column j is asset j's history. This organization is standard across finance and data science.
+
+**Dimensions** (`R.shape`): Knowing (500, 10) means 500 observations of 10-dimensional behavior. This matters because 500 points in 10D space might reveal structure that's invisible when looking at individual assets.
+
+**A concrete example**: Suppose on Day 1, tech stocks rose 2% and energy fell 1%. On Day 2, tech rose 4% and energy fell 2%. These vectors point in the *same direction*, tech up, energy down, just with different magnitudes. They represent the same "regime" (risk-on, growth-favoring). On Day 3, if tech fell 1% and energy rose 2%, that vector points in a *different direction*, a different regime.
+
+**Why this matters**: This representation is universal. Every quant model, from simple correlation analysis to machine learning, starts with data in this matrix form. The geometric view (days as vectors, similarity as direction) is how practitioners actually think about market structure.
 
 <Checkpoint
   id="checkpoint-1"
   title="Checkpoint: Data Representation"
-  requiredBlockIds={["text-0-1", "quiz-0-2", "code-1-1", "text-1-2", "quiz-1-3"]}
-  minRequired={4}
-  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+  requiredBlockIds={["text-0-1", "quiz-0-2", "code-1-1a", "code-1-1b", "code-1-1c", "quiz-1-2", "quiz-1-3"]}
+  minRequired={5}
+  lockedMessage="Complete at least 5 of the 7 tasks above to continue."
 >
 
-**Summary:**
-- Each market day is a vector in $\mathbb{R}^n$
-- The returns matrix $R$ stacks all days as rows
-- Same direction = same relative pattern = same regime
+**Key insight:** Each market day is a vector in $\mathbb{R}^n$. The returns matrix $R$ stacks all days as rows. Same direction = same relative pattern = same regime.
 
 </Checkpoint>
 
@@ -196,103 +333,156 @@ If market movements were truly random, the vectors would spread out to explore t
   referenceAnswer="Markets likely don't span all directions equally. Common factors (like overall market sentiment, interest rate sensitivity, growth vs. value rotation) tend to drive multiple assets together, meaning many days lie in a lower-dimensional subspace. The movements aren't independent across assets."
 />
 
-### 2.1 Measuring Effective Dimensionality
+### 2.1 Singular Value Decomposition (SVD)
 
-The **rank** of a matrix tells us how many linearly independent rows (or columns) it contains. For our returns matrix:
+The **Singular Value Decomposition** breaks any matrix into three parts:
 
-- If $\text{rank}(R) = 10$, the daily vectors span all 10 dimensions
-- If $\text{rank}(R) = 3$, the daily vectors only span a 3-dimensional subspace
+$$R = U \Sigma V^T$$
 
-In practice, numerical rank is rarely exact due to noise. We'll look at something more informative: how the "importance" of each dimension falls off.
+The diagonal entries of $\Sigma$ are called **singular values**. They tell us the "importance" of each orthogonal direction, larger values mean more of the data's variance lies along that direction.
+
+### Exercise 1: Extract Singular Values
 
 <CodeExercise
-  id="code-2-2"
+  id="code-2-2a"
   starterCode={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def analyze_dimensionality(R):
+def get_singular_values(R):
     """
-    Analyze how many dimensions the data effectively uses.
+    Compute the singular values of a matrix.
 
-    Compute the singular values of R. These tell us the
-    "importance" of each orthogonal direction.
+    The singular values tell us how much "spread" the data has
+    along each orthogonal direction, sorted from largest to smallest.
 
     Args:
-        R: (n_days, n_assets) returns matrix
+        R: A 2D numpy array (any shape)
 
     Returns:
-        singular_values: Array of singular values (largest first)
-        explained_ratios: What fraction each direction explains
+        A 1D array of singular values, sorted largest first
+
+    Example:
+        >>> R = np.array([[1, 0], [0, 2], [0, 0]])
+        >>> get_singular_values(R)
+        array([2., 1.])  # The data spreads more along one axis
     """
-    # TODO: Compute singular values using np.linalg.svd
-    # Hint: U, S, Vt = np.linalg.svd(R, full_matrices=False)
+    # TODO: Use np.linalg.svd to get singular values
+    # Hint: np.linalg.svd()
     # S contains the singular values
-
-    U, S, Vt = None, None, None  # Replace with actual SVD
-
-    # Singular values squared give "importance" of each direction
-    importance = S ** 2
-    total_importance = np.sum(importance)
-
-    # TODO: Compute what fraction each direction explains
-    explained_ratios = None  # Replace
-
-    return S, explained_ratios
-
-singular_values, ratios = analyze_dimensionality(returns)
-print("Singular values:", np.round(singular_values, 2))
-print("Fraction explained by each direction:", np.round(ratios, 3))`}
+    pass`}
   solution={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def analyze_dimensionality(R):
+def get_singular_values(R):
     """
-    Analyze how many dimensions the data effectively uses.
+    Compute the singular values of a matrix.
     """
     U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    importance = S ** 2
-    total_importance = np.sum(importance)
-    explained_ratios = importance / total_importance
-
-    return S, explained_ratios
-
-singular_values, ratios = analyze_dimensionality(returns)
-print("Singular values:", np.round(singular_values, 2))
-print("Fraction explained by each direction:", np.round(ratios, 3))`}
-  hint="np.linalg.svd returns U, S, Vt. The singular values S are already sorted largest-first. To get ratios, divide each squared singular value by the sum of all squared singular values."
-  tests={[]}
+    return S`}
+  hint="np.linalg.svd(R, full_matrices=False) returns three things: U, S, Vt. You only need S."
+  tests={[
+    {
+      "input": ["np.array([[3, 0], [0, 4]])"],
+      "expected": [4.0, 3.0],
+      "hidden": false,
+      "description": "Diagonal matrix: singular values are 4 and 3",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[1, 1], [1, 1]])"],
+      "expected": [2.0, 0.0],
+      "hidden": false,
+      "description": "Rank-1 matrix: only one non-zero singular value",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.eye(3)"],
+      "expected": [1.0, 1.0, 1.0],
+      "hidden": true,
+      "description": "Identity matrix: all singular values are 1",
+      "tolerance": 0.01
+    }
+  ]}
 />
 
-<TextResponse
-  id="text-2-3"
-  question="Look at the fraction explained by each direction. What does this tell you about the effective dimensionality of market movements?"
-  placeholder="Interpret the numbers..."
-  maxLength={400}
-  label="Interpretation"
-  referenceAnswer="The first few directions explain most of the 'importance'—likely 80%+ from just 3 directions. The remaining directions explain very little. This means market movements effectively live in a low-dimensional subspace (around 3D), even though we have 10 assets. The market doesn't use all available dimensions."
+### Exercise 2: Compute Explained Variance Ratios
+
+Singular values tell us raw importance, but we often want to know: **what fraction of total variance does each direction explain?**
+
+The formula is: square each singular value, then divide by the sum of all squared values.
+
+$$\text{ratio}_i = \frac{\sigma_i^2}{\sum_j \sigma_j^2}$$
+
+<CodeExercise
+  id="code-2-2b"
+  starterCode={`import numpy as np
+
+def explained_variance_ratios(singular_values):
+    """
+    Compute what fraction of total variance each singular value explains.
+
+    Args:
+        singular_values: 1D array of singular values (from SVD)
+
+    Returns:
+        1D array of ratios that sum to 1.0
+
+    Example:
+        >>> explained_variance_ratios(np.array([3.0, 1.0]))
+        array([0.9, 0.1])  # First direction explains 90%
+    """
+    # TODO: Square the values, then divide by the sum
+    pass`}
+  solution={`import numpy as np
+
+def explained_variance_ratios(singular_values):
+    """
+    Compute what fraction of total variance each singular value explains.
+    """
+    squared = singular_values ** 2
+    return squared / np.sum(squared)`}
+  hint="Square the singular values with ** 2, then divide each by the total sum."
+  tests={[
+    {
+      "input": ["np.array([2.0, 0.0])"],
+      "expected": [1.0, 0.0],
+      "hidden": false,
+      "description": "One direction explains everything",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([1.0, 1.0])"],
+      "expected": [0.5, 0.5],
+      "hidden": false,
+      "description": "Equal singular values = equal variance",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([3.0, 1.0])"],
+      "expected": [0.9, 0.1],
+      "hidden": false,
+      "description": "3² = 9, 1² = 1, so 90%/10% split",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([2.0, 1.0, 1.0])"],
+      "expected": [0.6667, 0.1667, 0.1667],
+      "hidden": true,
+      "description": "Three components",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+<Quiz
+  id="quiz-2-3"
+  question="If a 10-asset returns matrix has explained variance ratios of [0.50, 0.30, 0.15, 0.03, 0.01, 0.01, 0.00, 0.00, 0.00, 0.00], what does this tell you?"
+  options={[
+    "The market is completely random with no structure",
+    "Only the first asset matters, the others are irrelevant",
+    "About 95% of market movement can be explained by just 3 directions",
+    "The matrix has exactly 3 non-zero rows"
+  ]}
+  correct={2}
+  explanation="The first three ratios sum to 0.50 + 0.30 + 0.15 = 0.95, meaning 95% of the variance is captured by just 3 directions. The market effectively moves in a 3-dimensional subspace, even though there are 10 assets."
 />
 
 <Quiz
@@ -308,15 +498,29 @@ print("Fraction explained by each direction:", np.round(ratios, 3))`}
   explanation="Large singular values correspond to directions where the data has significant spread. If only 3 singular values are large, the daily vectors mostly lie within a 3D subspace of the full 10D space. The market's movements are structured around a few dominant directions."
 />
 
+### What You Just Built
+
+You've learned to **measure the intrinsic dimensionality of market data**. Here's what each piece does:
+
+**Singular values** (`np.linalg.svd(R)[1]`): These numbers quantify how much the data spreads along each orthogonal direction. The first singular value measures spread along the most important direction, the second along the next most important (perpendicular to the first), and so on.
+
+**Explained variance ratios** (`σᵢ² / Σσⱼ²`): Squaring and normalizing converts singular values into interpretable percentages. If the first ratio is 0.50, that direction alone explains 50% of all market movement. This is the same calculation used in PCA (Principal Component Analysis).
+
+**A concrete example**: Suppose you analyze 10 sector ETFs and find singular values [8.2, 4.1, 2.0, 0.5, 0.3, 0.2, 0.1, 0.1, 0.1, 0.1]. Squaring gives [67.2, 16.8, 4.0, ...]. The ratios are roughly [0.72, 0.18, 0.04, ...]. This means 72% of all sector movements can be explained by one direction (probably "overall market"), 18% by a second direction (perhaps "growth vs value"), and 4% by a third. The remaining 7 directions together explain only 6%, they're mostly noise.
+
+**The key discovery**: Real markets typically have only 2-4 dominant directions, not 10. This is profound, it means thousands of stocks aren't moving independently. They're driven by a handful of underlying factors. This is why "regime" is a meaningful concept: there simply aren't that many distinct ways the market moves.
+
+**Why this matters**: This analysis answers a fundamental question: "How complex is the market, really?" If 3 factors explain 90% of variance, you don't need to model 10 separate assets, you can model 3 factors and capture most of the behavior. This simplification is the foundation of factor investing, risk models, and portfolio optimization at every major fund.
+
 <Checkpoint
   id="checkpoint-2"
   title="Checkpoint: Dimensionality"
-  requiredBlockIds={["text-2-1", "code-2-2", "text-2-3", "quiz-2-4"]}
-  minRequired={3}
-  lockedMessage="Complete at least 3 of the 4 tasks above to continue."
+  requiredBlockIds={["text-2-1", "code-2-2a", "code-2-2b", "quiz-2-3", "quiz-2-4"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
 >
 
-**Key insight:** Market movements don't fill the full asset space. They concentrate around a few dominant directions—this is why regimes exist.
+**Key insight:** Market movements don't fill the full asset space. They concentrate around a few dominant directions, this is why regimes exist.
 
 </Checkpoint>
 
@@ -332,7 +536,7 @@ We've discovered that market movements live in a low-dimensional subspace. Now w
 
 ### 3.1 Why Standard Coordinates Hide Structure
 
-When we look at returns, we see them in "asset coordinates": Asset 1, Asset 2, ..., Asset 10. But these coordinates are arbitrary—they're based on how we happened to organize our data, not on how the market actually moves.
+When we look at returns, we see them in "asset coordinates": Asset 1, Asset 2, ..., Asset 10. But these coordinates are arbitrary, they're based on how we happened to organize our data, not on how the market actually moves.
 
 Imagine the market primarily moves in two patterns:
 - **Pattern A:** Tech and growth stocks move together
@@ -355,118 +559,261 @@ Neither pattern aligns with any single asset axis. In standard coordinates, thes
 
 ### 3.2 Finding the Natural Basis
 
-We want an **orthogonal basis** for the data—a new set of coordinate axes where:
+We want an **orthogonal basis** for the data, a new set of coordinate axes where:
 1. The first axis points in the direction of greatest spread
 2. The second axis points in the direction of second-greatest spread (perpendicular to the first)
 3. And so on...
 
-This is exactly what the SVD gives us. The right singular vectors $\mathbf{v}_1, \mathbf{v}_2, \ldots$ form this basis.
+This is exactly what the SVD gives us. The right singular vectors $\mathbf{v}_1, \mathbf{v}_2, \ldots$ form this basis. They're stored as **rows** of the matrix $V^T$.
+
+### Exercise 1: Extract Dominant Directions
 
 <CodeExercise
-  id="code-3-2"
+  id="code-3-2a"
   starterCode={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def find_dominant_directions(R, n_directions=3):
+def get_dominant_directions(Vt, n_directions):
     """
-    Find the dominant movement patterns in the market.
+    Extract the top n dominant directions from SVD output.
+
+    In SVD, the rows of Vt are the right singular vectors,
+    sorted by importance (first row = most important direction).
 
     Args:
-        R: (n_days, n_assets) returns matrix
-        n_directions: Number of dominant directions to extract
+        Vt: The Vt matrix from SVD, shape (n_features, n_features)
+        n_directions: How many top directions to extract
 
     Returns:
-        directions: (n_directions, n_assets) matrix where each row
-                   is a dominant direction (unit vector in asset space)
-        singular_values: The importance of each direction
+        A matrix of shape (n_directions, n_features) containing
+        the top n_directions as rows
+
+    Example:
+        >>> Vt = np.array([[0.6, 0.8], [-0.8, 0.6]])  # 2 directions
+        >>> get_dominant_directions(Vt, 1)
+        array([[0.6, 0.8]])  # Just the first (most important) direction
     """
-    # Compute SVD
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    # TODO: Extract the top n_directions from Vt
-    # Remember: rows of Vt are the right singular vectors
-    dominant_directions = None  # Replace
-    dominant_singular_values = None  # Replace
-
-    return dominant_directions, dominant_singular_values
-
-directions, strengths = find_dominant_directions(returns, n_directions=3)
-
-print("Dominant direction 1 (loadings on each asset):")
-print(np.round(directions[0], 3))
-print(f"\\nThis direction has singular value: {strengths[0]:.2f}")
-
-print("\\nDominant direction 2:")
-print(np.round(directions[1], 3))
-
-print("\\nDominant direction 3:")
-print(np.round(directions[2], 3))`}
+    # TODO: Slice the first n_directions rows from Vt
+    pass`}
   solution={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def find_dominant_directions(R, n_directions=3):
+def get_dominant_directions(Vt, n_directions):
     """
-    Find the dominant movement patterns in the market.
+    Extract the top n dominant directions from SVD output.
     """
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    dominant_directions = Vt[:n_directions]
-    dominant_singular_values = S[:n_directions]
-
-    return dominant_directions, dominant_singular_values
-
-directions, strengths = find_dominant_directions(returns, n_directions=3)
-
-print("Dominant direction 1 (loadings on each asset):")
-print(np.round(directions[0], 3))
-print(f"\\nThis direction has singular value: {strengths[0]:.2f}")
-
-print("\\nDominant direction 2:")
-print(np.round(directions[1], 3))
-
-print("\\nDominant direction 3:")
-print(np.round(directions[2], 3))`}
-  hint="The rows of Vt are already sorted by importance. To get the top n directions, slice Vt[:n_directions] and S[:n_directions]."
-  tests={[]}
+    return Vt[:n_directions]`}
+  hint="Vt[:n] gives you the first n rows of Vt."
+  tests={[
+    {
+      "input": ["np.array([[1, 0], [0, 1]])", 1],
+      "expected": [[1, 0]],
+      "hidden": false,
+      "description": "Extract 1 direction from 2x2 matrix"
+    },
+    {
+      "input": ["np.array([[0.6, 0.8], [-0.8, 0.6]])", 2],
+      "expected": [[0.6, 0.8], [-0.8, 0.6]],
+      "hidden": false,
+      "description": "Extract both directions"
+    },
+    {
+      "input": ["np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])", 2],
+      "expected": [[1, 0, 0], [0, 1, 0]],
+      "hidden": true,
+      "description": "Extract 2 from 3x3 identity"
+    }
+  ]}
 />
 
-<TextResponse
-  id="text-3-3"
-  question="Look at the loadings (coefficients) in the dominant directions. Why do we care about directions rather than individual assets?"
-  placeholder="What do the directions represent?"
-  maxLength={400}
-  label="Insight"
-  referenceAnswer="Each dominant direction is a pattern involving multiple assets. For example, if direction 1 has similar positive loadings on assets 1, 3, and 7, it means those assets tend to move together. Directions capture the market's actual behavior—how groups of assets co-move—while individual assets are arbitrary organizational choices."
+### Exercise 2: Project a Day onto a Direction
+
+Now comes the key operation: given a return vector (one day), how much does it align with a dominant direction?
+
+This is the **dot product**: $\text{projection} = \mathbf{r} \cdot \mathbf{v}$
+
+A large positive value means the day strongly followed that pattern. A large negative value means it moved opposite to the pattern. Near zero means the day's movement was unrelated to that pattern.
+
+<CodeExercise
+  id="code-3-2b"
+  starterCode={`import numpy as np
+
+def project_onto_direction(return_vector, direction):
+    """
+    Project a single day's returns onto a direction.
+
+    This tells us how much the day's movement aligned with the pattern.
+
+    Args:
+        return_vector: 1D array of returns for one day (n_assets,)
+        direction: 1D array representing a direction (n_assets,)
+
+    Returns:
+        A single float: the projection (dot product)
+
+    Example:
+        >>> r = np.array([0.02, 0.03])  # Day's returns
+        >>> v = np.array([1.0, 0.0])    # Direction: "only asset 1"
+        >>> project_onto_direction(r, v)
+        0.02  # The day had 0.02 movement along this direction
+    """
+    # TODO: Compute the dot product of return_vector and direction
+    pass`}
+  solution={`import numpy as np
+
+def project_onto_direction(return_vector, direction):
+    """
+    Project a single day's returns onto a direction.
+    """
+    return np.dot(return_vector, direction)`}
+  hint="Use np.dot(a, b) to compute the dot product of two vectors."
+  tests={[
+    {
+      "input": ["np.array([1.0, 0.0])", "np.array([1.0, 0.0])"],
+      "expected": 1.0,
+      "hidden": false,
+      "description": "Parallel vectors: projection = 1",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([1.0, 0.0])", "np.array([0.0, 1.0])"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "Perpendicular vectors: projection = 0",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([3.0, 4.0])", "np.array([0.6, 0.8])"],
+      "expected": 5.0,
+      "hidden": false,
+      "description": "3*0.6 + 4*0.8 = 1.8 + 3.2 = 5.0",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([1.0, -1.0])", "np.array([1.0, 1.0])"],
+      "expected": 0.0,
+      "hidden": true,
+      "description": "Opposite movements cancel out",
+      "tolerance": 0.001
+    }
+  ]}
 />
+
+### Exercise 3: Calculate Variance Along a Direction
+
+If a direction captures a lot of variance, it means the market frequently moves along that pattern, it's a dominant regime. If it captures little variance, that pattern rarely shows up in the data.
+
+$$\text{variance along } \mathbf{v} = \frac{1}{T} \sum_{t=1}^{T} (\mathbf{r}_t \cdot \mathbf{v})^2$$
+
+<CodeExercise
+  id="code-3-2c"
+  starterCode={`import numpy as np
+
+def variance_along_direction(R, direction):
+    """
+    Calculate how much variance in R lies along a given direction.
+
+    Steps:
+    1. Project each day (row of R) onto the direction
+    2. Square each projection
+    3. Take the mean
+
+    Args:
+        R: Returns matrix of shape (n_days, n_assets)
+        direction: 1D array of shape (n_assets,)
+
+    Returns:
+        A single float: the variance along this direction
+
+    Example:
+        >>> R = np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
+        >>> direction = np.array([1, 0])  # x-axis
+        >>> variance_along_direction(R, direction)
+        0.5  # Half the variance is along x
+    """
+    # TODO:
+    # 1. Compute projections: R @ direction gives all dot products at once
+    # 2. Square the projections
+    # 3. Return the mean
+    pass`}
+  solution={`import numpy as np
+
+def variance_along_direction(R, direction):
+    """
+    Calculate how much variance in R lies along a given direction.
+    """
+    projections = R @ direction
+    squared = projections ** 2
+    return np.mean(squared)`}
+  hint="R @ direction gives you a 1D array of all projections at once (matrix-vector multiplication). Then square and take the mean."
+  tests={[
+    {
+      "input": ["np.array([[1, 0], [-1, 0]])", "np.array([1, 0])"],
+      "expected": 1.0,
+      "hidden": false,
+      "description": "All variance along x-axis",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([[1, 0], [-1, 0]])", "np.array([0, 1])"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "No variance along y-axis",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([[1, 1], [-1, -1]])", "np.array([0.707, 0.707])"],
+      "expected": 2.0,
+      "hidden": false,
+      "description": "Variance along diagonal",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[2, 0], [0, 2], [-2, 0], [0, -2]])", "np.array([1, 0])"],
+      "expected": 2.0,
+      "hidden": true,
+      "description": "Mixed data",
+      "tolerance": 0.001
+    }
+  ]}
+/>
+
+<Quiz
+  id="quiz-3-3"
+  question="If a direction captures high variance, what does this mean about the market?"
+  options={[
+    "That direction represents noise and should be ignored",
+    "Many days had large movements along that pattern",
+    "The direction points toward the most profitable asset",
+    "The market was stable during those days"
+  ]}
+  correct={1}
+  explanation="High variance along a direction means many days had significant projections onto it, the market frequently moved along that pattern. These high-variance directions are the dominant regimes we're looking for."
+/>
+
+### What You Just Built
+
+You've learned to **extract and interpret the dominant movement patterns** in market data. Here's what each piece does:
+
+**Extracting dominant directions** (`Vt[:k]`): The rows of Vt from SVD are the right singular vectors, orthonormal directions sorted by importance. The first row is the direction of maximum variance, the second is perpendicular to the first with maximum remaining variance, and so on. Slicing gives you the top k patterns.
+
+**Projection onto a direction** (`np.dot(r, v)`): This measures how much a day's movement aligns with a pattern. If v represents "tech up, energy down" and today tech rose 3% while energy fell 2%, the projection is large and positive. If tech fell and energy rose, the projection is large and negative. If tech and energy both rose equally, the projection might be near zero (unrelated to this pattern).
+
+**Variance along a direction** (`np.mean((R @ v) ** 2)`): This tells you how important a direction is across all days. High variance = the market frequently moves along this pattern. Low variance = this pattern rarely appears.
+
+**A concrete example**: Suppose the first dominant direction is v₁ = [0.4, 0.4, 0.4, -0.3, -0.3, -0.3, 0, 0, 0, 0] (simplified). This says "tech stocks (first 3) move together, energy stocks (next 3) move opposite, others don't participate." Projecting a day onto v₁ gives a single number: positive means "risk-on" (tech up, energy down), negative means "risk-off" (tech down, energy up), near zero means "this day wasn't about that pattern."
+
+**Interpreting directions**: Each dominant direction represents a "theme" or "factor" in market behavior:
+- Direction 1 often captures "market" (everything moves together)
+- Direction 2 might capture "growth vs value" or "risk-on vs risk-off"
+- Direction 3 might capture sector rotation or interest rate sensitivity
+
+**Why this matters**: This is exactly how factor models work in practice. Firms like MSCI Barra, Axioma, and Bloomberg build risk models by identifying these dominant directions and tracking how much each stock loads onto them. When you project returns onto dominant directions, you're decomposing "why did the market move today?" into interpretable components.
 
 <Checkpoint
   id="checkpoint-3"
   title="Checkpoint: Dominant Patterns"
-  requiredBlockIds={["quiz-3-1", "code-3-2", "text-3-3"]}
-  minRequired={2}
-  lockedMessage="Complete at least 2 of the 3 tasks above to continue."
+  requiredBlockIds={["quiz-3-1", "code-3-2a", "code-3-2b", "code-3-2c", "quiz-3-3"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
 >
 
 **Key insight:** The dominant directions are the "natural coordinates" of market movement. They're combinations of assets that move together, revealing structure that single-asset analysis would miss.
@@ -483,252 +830,240 @@ print(np.round(directions[2], 3))`}
 
 Now comes the payoff. We've found that market movements live in a low-dimensional subspace and identified the dominant directions. Let's **project** our 500 daily vectors onto these directions and see what structure emerges.
 
-### 4.1 Projection: From 10D to 2D
+### 4.1 Project All Days at Once
 
-To project a return vector $\mathbf{r}$ onto the dominant directions, we compute:
+In Section 3, you projected one day at a time using dot products. But we have 500 days, doing them one by one would be tedious. Matrix multiplication lets us project **all days simultaneously**.
 
-$$\text{coordinate}_i = \mathbf{r} \cdot \mathbf{v}_i$$
+If $V$ contains the dominant directions as columns, then $R \times V$ projects every row of $R$ onto those directions at once.
 
-This gives us the component of $\mathbf{r}$ along each dominant direction. If we keep only the first 2 or 3 coordinates, we get a 2D or 3D representation of each market day.
-
-<CodeExercise
-  id="code-4-1"
-  starterCode={`import numpy as np
-
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def project_to_dominant_space(R, n_components=2):
-    """
-    Project market days onto the dominant directions.
-
-    Args:
-        R: (n_days, n_assets) returns matrix
-        n_components: Number of dominant directions to project onto
-
-    Returns:
-        projected: (n_days, n_components) - each day as coordinates
-                   in the reduced space
-        directions: (n_components, n_assets) - the directions used
-    """
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    # Get the dominant directions
-    V = Vt[:n_components].T  # (n_assets, n_components)
-
-    # TODO: Project each day onto these directions
-    # Hint: projected = R @ V gives you the coordinates
-    projected = None  # Replace
-
-    return projected, Vt[:n_components]
-
-coords_2d, directions = project_to_dominant_space(returns, n_components=2)
-
-print(f"Original data shape: {returns.shape}")
-print(f"Projected data shape: {coords_2d.shape}")
-print(f"\\nFirst 5 days in reduced coordinates:")
-print(np.round(coords_2d[:5], 2))`}
-  solution={`import numpy as np
-
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def project_to_dominant_space(R, n_components=2):
-    """
-    Project market days onto the dominant directions.
-    """
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    V = Vt[:n_components].T
-    projected = R @ V
-
-    return projected, Vt[:n_components]
-
-coords_2d, directions = project_to_dominant_space(returns, n_components=2)
-
-print(f"Original data shape: {returns.shape}")
-print(f"Projected data shape: {coords_2d.shape}")
-print(f"\\nFirst 5 days in reduced coordinates:")
-print(np.round(coords_2d[:5], 2))`}
-  hint="Matrix multiplication does the projection: R @ V computes the dot product of each row of R with each column of V, giving coordinates in the new basis."
-  tests={[]}
-/>
-
-### 4.2 Seeing the Structure
-
-Let's visualize where market days land in reduced space.
+### Exercise 1: Project a Matrix onto Directions
 
 <CodeExercise
-  id="code-4-2"
+  id="code-4-1a"
   starterCode={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def project_to_dominant_space(R, n_components=2):
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-    V = Vt[:n_components].T
-    return R @ V, Vt[:n_components]
-
-coords_2d, _ = project_to_dominant_space(returns, n_components=2)
-
-def analyze_regime_structure(coords):
+def project_all_days(R, directions):
     """
-    Analyze the geometric structure in reduced space.
+    Project all days onto the given directions at once.
 
     Args:
-        coords: (n_days, 2) projected coordinates
+        R: Returns matrix of shape (n_days, n_assets)
+        directions: Matrix of shape (n_directions, n_assets) where each
+                   ROW is a direction (as returned by SVD's Vt)
 
     Returns:
-        dict with analysis results
+        Projected coordinates of shape (n_days, n_directions)
+
+    Example:
+        >>> R = np.array([[1, 0], [0, 1], [1, 1]])  # 3 days, 2 assets
+        >>> dirs = np.array([[1, 0], [0, 1]])       # 2 directions (x and y axes)
+        >>> project_all_days(R, dirs)
+        array([[1, 0], [0, 1], [1, 1]])  # Each day's coordinates
     """
-    # Compute some basic geometry
-    center = np.mean(coords, axis=0)
-    distances_from_center = np.linalg.norm(coords - center, axis=1)
-
-    # Find extreme days (far from center)
-    extreme_threshold = np.percentile(distances_from_center, 95)
-    extreme_mask = distances_from_center > extreme_threshold
-
-    # Check if points cluster in certain directions (quadrants)
-    quadrant_counts = np.zeros(4)
-    for x, y in coords:
-        if x >= 0 and y >= 0:
-            quadrant_counts[0] += 1
-        elif x < 0 and y >= 0:
-            quadrant_counts[1] += 1
-        elif x < 0 and y < 0:
-            quadrant_counts[2] += 1
-        else:
-            quadrant_counts[3] += 1
-
-    return {
-        'center': center,
-        'mean_distance': np.mean(distances_from_center),
-        'n_extreme_days': np.sum(extreme_mask),
-        'quadrant_distribution': quadrant_counts / len(coords)
-    }
-
-analysis = analyze_regime_structure(coords_2d)
-print("Structure Analysis:")
-print(f"Center of mass: ({analysis['center'][0]:.3f}, {analysis['center'][1]:.3f})")
-print(f"Mean distance from center: {analysis['mean_distance']:.2f}")
-print(f"Extreme days (95th percentile): {analysis['n_extreme_days']}")
-print(f"Quadrant distribution: {np.round(analysis['quadrant_distribution'], 2)}")`}
+    # TODO: Project R onto directions
+    # Hint: You need directions as COLUMNS, so transpose: directions.T
+    # Then: R @ directions.T
+    pass`}
   solution={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return regime_weights @ regime_directions + noise
-
-returns = generate_market_data()
-
-def project_to_dominant_space(R, n_components=2):
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-    V = Vt[:n_components].T
-    return R @ V, Vt[:n_components]
-
-coords_2d, _ = project_to_dominant_space(returns, n_components=2)
-
-def analyze_regime_structure(coords):
+def project_all_days(R, directions):
     """
-    Analyze the geometric structure in reduced space.
+    Project all days onto the given directions at once.
     """
-    center = np.mean(coords, axis=0)
-    distances_from_center = np.linalg.norm(coords - center, axis=1)
-
-    extreme_threshold = np.percentile(distances_from_center, 95)
-    extreme_mask = distances_from_center > extreme_threshold
-
-    quadrant_counts = np.zeros(4)
-    for x, y in coords:
-        if x >= 0 and y >= 0:
-            quadrant_counts[0] += 1
-        elif x < 0 and y >= 0:
-            quadrant_counts[1] += 1
-        elif x < 0 and y < 0:
-            quadrant_counts[2] += 1
-        else:
-            quadrant_counts[3] += 1
-
-    return {
-        'center': center,
-        'mean_distance': np.mean(distances_from_center),
-        'n_extreme_days': np.sum(extreme_mask),
-        'quadrant_distribution': quadrant_counts / len(coords)
+    return R @ directions.T`}
+  hint="Directions are given as rows (from Vt). To project, you need them as columns: R @ directions.T"
+  tests={[
+    {
+      "input": ["np.array([[1, 0], [0, 1]])", "np.array([[1, 0], [0, 1]])"],
+      "expected": [[1, 0], [0, 1]],
+      "hidden": false,
+      "description": "Identity projection: coordinates unchanged"
+    },
+    {
+      "input": ["np.array([[3, 4]])", "np.array([[0.6, 0.8]])"],
+      "expected": [[5.0]],
+      "hidden": false,
+      "description": "Single day onto single direction: 3*0.6 + 4*0.8 = 5",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[1, 1], [-1, -1]])", "np.array([[1, 0], [0, 1]])"],
+      "expected": [[1, 1], [-1, -1]],
+      "hidden": true,
+      "description": "Two days onto standard basis"
     }
-
-analysis = analyze_regime_structure(coords_2d)
-print("Structure Analysis:")
-print(f"Center of mass: ({analysis['center'][0]:.3f}, {analysis['center'][1]:.3f})")
-print(f"Mean distance from center: {analysis['mean_distance']:.2f}")
-print(f"Extreme days (95th percentile): {analysis['n_extreme_days']}")
-print(f"Quadrant distribution: {np.round(analysis['quadrant_distribution'], 2)}")`}
-  hint="Run this code to see the analysis. The quadrant distribution tells you if days tend to cluster in certain regions of the reduced space."
-  tests={[]}
+  ]}
 />
 
-<TextResponse
-  id="text-4-3"
-  question="Based on the analysis, do market days appear to cluster in certain regions of the reduced space, or are they uniformly spread? What does this suggest about regimes?"
-  placeholder="Describe what you observe..."
-  maxLength={400}
-  label="Observation"
-  referenceAnswer="If the quadrant distribution is roughly equal (25% each), the data is spread relatively uniformly. If it's uneven, days cluster in certain directions—suggesting regimes. The extreme days (far from center) represent unusual market conditions. Structure in reduced space = evidence of regimes."
+### Exercise 2: Find Distance from Center
+
+Once projected, we can ask: how far is each day from the "average" day? Days far from the center represent unusual market conditions, potential regime extremes.
+
+<CodeExercise
+  id="code-4-1b"
+  starterCode={`import numpy as np
+
+def distances_from_center(coords):
+    """
+    Calculate how far each point is from the center of mass.
+
+    Args:
+        coords: Projected coordinates of shape (n_days, n_dims)
+
+    Returns:
+        1D array of distances, one per day
+
+    Example:
+        >>> coords = np.array([[0, 0], [3, 4], [-3, -4]])
+        >>> distances_from_center(coords)
+        array([0., 5., 5.])  # Center is at origin, distances are 0, 5, 5
+    """
+    # TODO:
+    # 1. Compute the center (mean of all points)
+    # 2. Subtract center from each point
+    # 3. Compute the norm (length) of each centered point
+    pass`}
+  solution={`import numpy as np
+
+def distances_from_center(coords):
+    """
+    Calculate how far each point is from the center of mass.
+    """
+    center = np.mean(coords, axis=0)
+    centered = coords - center
+    return np.linalg.norm(centered, axis=1)`}
+  hint="np.mean(coords, axis=0) gives the center. np.linalg.norm(array, axis=1) computes the length of each row."
+  tests={[
+    {
+      "input": ["np.array([[0, 0], [2, 0], [-2, 0]])"],
+      "expected": [0.0, 2.0, 2.0],
+      "hidden": false,
+      "description": "Points on x-axis, center at origin",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[1, 1], [1, 1], [1, 1]])"],
+      "expected": [0.0, 0.0, 0.0],
+      "hidden": false,
+      "description": "All points identical: all distances are 0",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[3, 4], [0, 0]])"],
+      "expected": [2.5, 2.5],
+      "hidden": true,
+      "description": "Two points: center is midpoint, equal distances",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 3: Find the Most Extreme Day
+
+Which day had the most unusual market behavior? That's the day farthest from the center in reduced space.
+
+<CodeExercise
+  id="code-4-1c"
+  starterCode={`import numpy as np
+
+def find_most_extreme_day(coords):
+    """
+    Find the index of the day farthest from the center.
+
+    This day represents the most unusual market behavior
+    in terms of the dominant movement patterns.
+
+    Args:
+        coords: Projected coordinates of shape (n_days, n_dims)
+
+    Returns:
+        Integer index of the most extreme day
+
+    Example:
+        >>> coords = np.array([[0, 0], [1, 0], [10, 0]])
+        >>> find_most_extreme_day(coords)
+        2  # Day at index 2 is farthest from center
+    """
+    # TODO:
+    # 1. Compute distances from center (you can reuse the logic)
+    # 2. Find the index of the maximum distance
+    pass`}
+  solution={`import numpy as np
+
+def find_most_extreme_day(coords):
+    """
+    Find the index of the day farthest from the center.
+    """
+    center = np.mean(coords, axis=0)
+    distances = np.linalg.norm(coords - center, axis=1)
+    return np.argmax(distances)`}
+  hint="Use np.argmax(distances) to find the index of the largest value."
+  tests={[
+    {
+      "input": ["np.array([[0, 0], [1, 0], [5, 0]])"],
+      "expected": 2,
+      "hidden": false,
+      "description": "Last point is farthest"
+    },
+    {
+      "input": ["np.array([[10, 0], [0, 0], [1, 0]])"],
+      "expected": 0,
+      "hidden": false,
+      "description": "First point is farthest"
+    },
+    {
+      "input": ["np.array([[0, 0], [0, 3], [4, 0]])"],
+      "expected": 2,
+      "hidden": true,
+      "description": "Point at (4,0) is farthest from center at (4/3, 1)"
+    }
+  ]}
+/>
+
+<Quiz
+  id="quiz-4-2"
+  question="In reduced space, what does a day far from the center represent?"
+  options={[
+    "A day with low trading volume across most assets in the portfolio",
+    "A day with average market behavior that matches the historical mean",
+    "A day with unusually strong movement along the dominant patterns",
+    "A day that occurred early in the dataset, far from recent observations"
+  ]}
+  correct={2}
+  explanation="Distance from center in reduced space measures how strongly the day's returns aligned with the dominant directions. A distant day means the market moved strongly along one or more regime patterns, an unusual or extreme day."
 />
 
 <Quiz
   id="quiz-4-4"
   question="What's the difference between seeing 'structure' and seeing 'randomness' in reduced space?"
   options={[
-    "Structure means all points are at the same distance from center",
-    "Structure means points cluster, align along axes, or show clear patterns; randomness means uniform circular spread",
-    "Structure means more points; randomness means fewer points",
-    "There is no meaningful difference"
+    "Structure means all points lie at the same distance from the center of mass",
+    "Structure means points cluster, align, or show patterns; randomness means uniform spread",
+    "Structure means more data points were collected; randomness means fewer observations",
+    "There is no meaningful geometric difference between structured and random data"
   ]}
   correct={1}
   explanation="In random data, projected points form a roughly uniform circular cloud with no preferred directions. In structured data (like markets with regimes), you see elongation along certain directions, clustering into groups, or non-uniform density. This visual difference is evidence of underlying patterns."
 />
 
+### What You Just Built
+
+You now have the tools to **visualize high-dimensional market behavior in 2D or 3D**. Here's what each piece does:
+
+**Projecting all days at once** (`R @ directions.T`): Instead of computing 500 separate dot products, matrix multiplication does them all simultaneously. If `R` is (500 days × 10 assets) and `directions` is (3 directions × 10 assets), then `R @ directions.T` gives you (500 days × 3 coordinates), each day's position in the reduced space.
+
+**Distance from center**: The center of mass is the "average day." Days far from it are unusual. In market terms, a day at distance 0.5 might be typical, while a day at distance 3.0 might be a crisis or rally where assets moved strongly along the dominant patterns.
+
+**Finding extreme days**: The day farthest from center is often historically significant. For example, if you ran this on 2008-2020 data, the most extreme day might be March 16, 2020 (COVID crash) or September 15, 2008 (Lehman collapse), days when the market moved violently along its primary patterns.
+
+**Why this matters**: Portfolio managers use this to identify regime changes in real-time. If today's market position in reduced space suddenly jumps far from where it's been, that's an early warning signal. Quants at firms like AQR and Two Sigma build dashboards that visualize exactly this, where is today relative to historical patterns?
+
 <Checkpoint
   id="checkpoint-4"
   title="Checkpoint: Regime Visualization"
-  requiredBlockIds={["code-4-1", "code-4-2", "text-4-3", "quiz-4-4"]}
-  minRequired={3}
-  lockedMessage="Complete at least 3 of the 4 tasks above to continue."
+  requiredBlockIds={["code-4-1a", "code-4-1b", "code-4-1c", "quiz-4-2", "quiz-4-4"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
 >
 
 **Key insight:** Projecting to dominant directions reveals structure invisible in 10D. If days cluster or align in reduced space, that's geometric evidence of regimes.
@@ -753,127 +1088,256 @@ $$\hat{\mathbf{r}} = \sum_{i=1}^{k} (\mathbf{r} \cdot \mathbf{v}_i) \mathbf{v}_i
 
 The reconstruction $\hat{\mathbf{r}}$ contains only the information captured by those $k$ directions. The **residual** $\mathbf{r} - \hat{\mathbf{r}}$ is what we lost.
 
+### Exercise 1: Low-Rank Reconstruction
+
+The SVD gives us $R = U \Sigma V^T$. To reconstruct using only the top $k$ components, we truncate: keep only the first $k$ columns of $U$, first $k$ singular values, and first $k$ rows of $V^T$.
+
 <CodeExercise
-  id="code-5-1"
+  id="code-5-1a"
   starterCode={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def reconstruct_and_compare(R, n_components):
+def reconstruct_low_rank(U, S, Vt, k):
     """
-    Reconstruct market movements using only top components.
+    Reconstruct a matrix using only the top k components from SVD.
 
     Args:
-        R: (n_days, n_assets) original returns
-        n_components: Number of components to use
+        U: Left singular vectors, shape (n_days, n)
+        S: Singular values, shape (n,)
+        Vt: Right singular vectors, shape (n, n_assets)
+        k: Number of components to keep
 
     Returns:
-        reconstructed: (n_days, n_assets) reconstructed returns
-        residuals: (n_days, n_assets) what was lost
-        reconstruction_quality: Fraction of total "energy" preserved
+        Reconstructed matrix of shape (n_days, n_assets)
+
+    Example:
+        >>> U, S, Vt = np.linalg.svd(some_matrix, full_matrices=False)
+        >>> R_approx = reconstruct_low_rank(U, S, Vt, 2)  # Keep top 2
     """
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    # Keep only top n_components
-    U_k = U[:, :n_components]
-    S_k = S[:n_components]
-    Vt_k = Vt[:n_components, :]
-
-    # TODO: Reconstruct using R_k = U_k @ diag(S_k) @ Vt_k
-    reconstructed = None  # Replace
-
-    # TODO: Compute residuals (original - reconstructed)
-    residuals = None  # Replace
-
-    # Measure quality: fraction of total squared magnitude preserved
-    original_energy = np.sum(R ** 2)
-    reconstructed_energy = np.sum(reconstructed ** 2)
-    quality = reconstructed_energy / original_energy
-
-    return reconstructed, residuals, quality
-
-# Compare reconstruction with different numbers of components
-for k in [1, 2, 3, 5, 10]:
-    _, _, quality = reconstruct_and_compare(returns, k)
-    print(f"{k} components: {100*quality:.1f}% of information preserved")`}
+    # TODO:
+    # 1. Truncate U to first k columns: U[:, :k]
+    # 2. Truncate S to first k values and make diagonal: np.diag(S[:k])
+    # 3. Truncate Vt to first k rows: Vt[:k, :]
+    # 4. Multiply: U_k @ diag(S_k) @ Vt_k
+    pass`}
   solution={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def reconstruct_and_compare(R, n_components):
+def reconstruct_low_rank(U, S, Vt, k):
     """
-    Reconstruct market movements using only top components.
+    Reconstruct a matrix using only the top k components from SVD.
     """
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-
-    U_k = U[:, :n_components]
-    S_k = S[:n_components]
-    Vt_k = Vt[:n_components, :]
-
-    reconstructed = U_k @ np.diag(S_k) @ Vt_k
-    residuals = R - reconstructed
-
-    original_energy = np.sum(R ** 2)
-    reconstructed_energy = np.sum(reconstructed ** 2)
-    quality = reconstructed_energy / original_energy
-
-    return reconstructed, residuals, quality
-
-for k in [1, 2, 3, 5, 10]:
-    _, _, quality = reconstruct_and_compare(returns, k)
-    print(f"{k} components: {100*quality:.1f}% of information preserved")`}
-  hint="To reconstruct, multiply U_k @ np.diag(S_k) @ Vt_k. This gives you the rank-k approximation of the original matrix."
-  tests={[]}
+    U_k = U[:, :k]
+    S_k = np.diag(S[:k])
+    Vt_k = Vt[:k, :]
+    return U_k @ S_k @ Vt_k`}
+  hint="Slice U, S, Vt to keep only the first k components, then multiply them back together."
+  tests={[
+    {
+      "input": ["np.array([[1, 0], [0, 0]])", "np.array([1.0, 0.0])", "np.array([[1, 0], [0, 1]])", 1],
+      "expected": [[1, 0], [0, 0]],
+      "hidden": false,
+      "description": "Rank-1 matrix reconstructed with k=1",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[1, 0], [0, 1]])", "np.array([1.0, 1.0])", "np.array([[1, 0], [0, 1]])", 2],
+      "expected": [[1, 0], [0, 1]],
+      "hidden": false,
+      "description": "Identity matrix fully reconstructed with k=2",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[0.6, 0.8], [-0.8, 0.6]])", "np.array([5.0, 3.0])", "np.array([[0.6, 0.8], [-0.8, 0.6]])", 1],
+      "expected": [[1.8, 2.4], [-2.4, -3.2]],
+      "hidden": true,
+      "description": "Keep only dominant direction",
+      "tolerance": 0.1
+    }
+  ]}
 />
 
-<TextResponse
-  id="text-5-2"
-  question="Look at the reconstruction quality for different numbers of components. Which types of movements are preserved by using only 3 components? Which are lost?"
-  placeholder="Think about what the residuals represent..."
-  maxLength={400}
-  label="Analysis"
-  referenceAnswer="With 3 components, movements along the dominant directions are preserved—these are the common patterns where multiple assets move together. What's lost is the idiosyncratic, asset-specific movements: the noise, individual stock news, and anything that doesn't fit the main patterns. Regimes are preserved; noise is discarded."
+### Exercise 2: Compute Residuals
+
+The residual is what's left over after reconstruction, the part of the original data that wasn't captured by the top $k$ directions.
+
+<CodeExercise
+  id="code-5-1b"
+  starterCode={`import numpy as np
+
+def compute_residuals(original, reconstructed):
+    """
+    Compute what was lost in reconstruction.
+
+    The residual tells us what movements couldn't be explained
+    by the dominant patterns we kept.
+
+    Args:
+        original: Original data matrix
+        reconstructed: Low-rank reconstruction
+
+    Returns:
+        Residual matrix (same shape as inputs)
+
+    Example:
+        >>> original = np.array([[1, 2], [3, 4]])
+        >>> reconstructed = np.array([[1, 2], [3, 3.9]])
+        >>> compute_residuals(original, reconstructed)
+        array([[0. , 0. ], [0. , 0.1]])
+    """
+    # TODO: Compute the difference between original and reconstructed
+    pass`}
+  solution={`import numpy as np
+
+def compute_residuals(original, reconstructed):
+    """
+    Compute what was lost in reconstruction.
+    """
+    return original - reconstructed`}
+  hint="Simply subtract: original - reconstructed"
+  tests={[
+    {
+      "input": ["np.array([[1, 2], [3, 4]])", "np.array([[1, 2], [3, 4]])"],
+      "expected": [[0, 0], [0, 0]],
+      "hidden": false,
+      "description": "Perfect reconstruction: no residuals",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[5, 0], [0, 5]])", "np.array([[4, 0], [0, 4]])"],
+      "expected": [[1, 0], [0, 1]],
+      "hidden": false,
+      "description": "Partial reconstruction: residuals remain",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[1.0, 2.0, 3.0]])", "np.array([[0.9, 2.1, 2.8]])"],
+      "expected": [[0.1, -0.1, 0.2]],
+      "hidden": true,
+      "description": "Single row with small residuals",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 3: Measure Reconstruction Quality
+
+How good is our low-rank approximation? We measure this by the fraction of total "energy" (sum of squared values) that was preserved.
+
+$$\text{quality} = \frac{\sum \hat{r}_{ij}^2}{\sum r_{ij}^2}$$
+
+<CodeExercise
+  id="code-5-1c"
+  starterCode={`import numpy as np
+
+def reconstruction_quality(original, reconstructed):
+    """
+    Measure what fraction of the data's energy was preserved.
+
+    Energy = sum of all squared values. A quality of 0.95 means
+    95% of the original information was captured.
+
+    Args:
+        original: Original data matrix
+        reconstructed: Low-rank reconstruction
+
+    Returns:
+        Float between 0 and 1 representing fraction preserved
+
+    Example:
+        >>> original = np.array([[3, 4]])  # Energy = 9 + 16 = 25
+        >>> reconstructed = np.array([[3, 4]])  # Same
+        >>> reconstruction_quality(original, reconstructed)
+        1.0  # Perfect reconstruction
+    """
+    # TODO: Compute and return the ratio of reconstructed energy to original energy
+    pass`}
+  solution={`import numpy as np
+
+def reconstruction_quality(original, reconstructed):
+    """
+    Measure what fraction of the data's energy was preserved.
+    """
+    original_energy = np.sum(original ** 2)
+    reconstructed_energy = np.sum(reconstructed ** 2)
+    return reconstructed_energy / original_energy`}
+  hint="Square all values, sum them up for both matrices, then divide."
+  tests={[
+    {
+      "input": ["np.array([[3, 4]])", "np.array([[3, 4]])"],
+      "expected": 1.0,
+      "hidden": false,
+      "description": "Perfect reconstruction = quality 1.0",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[10, 0]])", "np.array([[0, 0]])"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "No reconstruction = quality 0.0",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[1, 0], [0, 1]])", "np.array([[1, 0], [0, 0]])"],
+      "expected": 0.5,
+      "hidden": false,
+      "description": "Half the energy preserved = quality 0.5",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[2, 0, 0], [0, 1, 0]])", "np.array([[2, 0, 0], [0, 0, 0]])"],
+      "expected": 0.8,
+      "hidden": true,
+      "description": "4/5 energy preserved",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+<Quiz
+  id="quiz-5-2"
+  question="If you reconstruct market data using only 3 components and the quality is 0.90, what does the 10% residual represent?"
+  options={[
+    "Random measurement errors and noise introduced during data collection",
+    "The most important market movements that drive overall portfolio returns",
+    "Asset-specific movements that don't follow the dominant patterns",
+    "Historical data from the oldest days that no longer reflects current behavior"
+  ]}
+  correct={2}
+  explanation="The residuals contain movements that couldn't be explained by the top 3 directions, these are typically idiosyncratic, asset-specific behaviors. If one stock has news that doesn't affect others, it shows up in the residuals. These aren't errors; they're real movements that just don't fit the common patterns."
 />
 
 <Quiz
   id="quiz-5-3"
-  question="If 3 components preserve 90% of the information, what does the remaining 10% represent?"
+  question="As you increase the number of components k from 1 to 10 (the full number of assets), what happens to the residuals?"
   options={[
-    "Measurement errors only",
-    "The most important market movements",
-    "Asset-specific movements that don't follow the dominant patterns",
-    "Future market predictions"
+    "They stay the same size regardless of k",
+    "They shrink to zero when k equals the number of assets",
+    "They grow larger as you add more components",
+    "They oscillate randomly"
   ]}
-  correct={2}
-  explanation="The residuals contain movements that are orthogonal to the dominant directions—primarily idiosyncratic, asset-specific behavior. If one stock has news that doesn't affect others, that shows up in the residuals. These aren't errors; they're real movements, just not part of the common structure."
+  correct={1}
+  explanation="With k = n (full rank), you can perfectly reconstruct the original matrix: R = U Σ Vᵀ exactly. The residual is zero. Each additional component captures more of the remaining variance, so residuals monotonically decrease until they vanish at full rank."
 />
+
+### What You Just Built
+
+You now understand the **tradeoff between simplicity and accuracy** in dimensionality reduction. Here's what each piece does:
+
+**Low-rank reconstruction** (`U_k @ diag(S_k) @ Vt_k`): This is the best possible k-dimensional approximation to your original data. "Best" means it minimizes the sum of squared errors, no other k-dimensional subspace captures more variance. This is the Eckart-Young theorem, a fundamental result in linear algebra.
+
+**Residuals** (`original - reconstructed`): These are the movements that don't fit the dominant patterns. If Apple had company-specific news that didn't affect other tech stocks, that movement lives in the residuals. Residuals aren't noise or errors, they're real movements that are just orthogonal to the common structure.
+
+**Reconstruction quality**: If 3 components give you 90% quality, you've compressed 10 dimensions into 3 while keeping 90% of the information. The remaining 10% is idiosyncratic, asset-specific behavior.
+
+**A concrete example**: Suppose your 10 assets are tech stocks. The first direction might be "tech sector moves together" (explains 60%). The second might be "large-cap vs small-cap tech" (explains 20%). The third might be "hardware vs software" (explains 10%). With k=3, you capture 90% of movements. The residual 10% is individual stock news, earnings surprises, CEO changes, product launches, that only affected one company.
+
+**Why this matters**: This decomposition is the foundation of factor models used by every major quant fund. The dominant directions become your "factors" (like market, size, value in the Fama-French model). Residuals become "idiosyncratic risk" that diversification can eliminate. Understanding this split is essential for portfolio construction.
 
 <Checkpoint
   id="checkpoint-5"
   title="Checkpoint: Information Loss"
-  requiredBlockIds={["code-5-1", "text-5-2", "quiz-5-3"]}
-  minRequired={2}
-  lockedMessage="Complete at least 2 of the 3 tasks above to continue."
+  requiredBlockIds={["code-5-1a", "code-5-1b", "code-5-1c", "quiz-5-2", "quiz-5-3"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
 >
 
 **Key insight:** Simplification is a tradeoff. We keep the structured, common movements (regimes) and discard the idiosyncratic noise. For understanding market structure, this is often exactly what we want.
@@ -888,159 +1352,258 @@ for k in [1, 2, 3, 5, 10]:
 
 ## Section 6: How Regimes Change Over Time
 
-Markets don't stay in one regime forever. They transition—sometimes gradually, sometimes abruptly. Can we see these transitions geometrically?
+Markets don't stay in one regime forever. They transition, sometimes gradually, sometimes abruptly. Can we see these transitions geometrically?
 
 ### 6.1 Tracking Direction Over Time
 
 In reduced space, each day is a point. If we connect consecutive days, we trace out a **trajectory** through regime space. Sharp turns in this trajectory indicate regime changes.
 
+### Exercise 1: Compute Angle Between Vectors
+
+To detect regime transitions, we need to measure how much the market's direction changed from one day to the next. The angle between two vectors tells us this.
+
+$$\cos(\theta) = \frac{\mathbf{v}_1 \cdot \mathbf{v}_2}{\|\mathbf{v}_1\| \|\mathbf{v}_2\|}$$
+
 <CodeExercise
-  id="code-6-1"
+  id="code-6-1a"
   starterCode={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def analyze_regime_transitions(R, n_components=3):
+def angle_between_vectors(v1, v2):
     """
-    Analyze how the market moves through regime space over time.
+    Compute the angle (in degrees) between two vectors.
 
     Args:
-        R: (n_days, n_assets) returns matrix
-        n_components: Dimensionality of regime space
+        v1: First vector (numpy array)
+        v2: Second vector (numpy array)
 
     Returns:
-        angles: Angle changes (in degrees) between consecutive day vectors
-        large_transitions: Days where angle change exceeds threshold
+        Angle in degrees (0 to 180)
+
+    Example:
+        >>> angle_between_vectors(np.array([1, 0]), np.array([0, 1]))
+        90.0  # Perpendicular vectors
     """
-    # Project to reduced space
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-    coords = R @ Vt[:n_components].T
-
-    # Compute angle between consecutive day vectors
-    angles = []
-    for t in range(1, len(coords)):
-        v1 = coords[t-1]
-        v2 = coords[t]
-
-        # Handle zero vectors
-        norm1 = np.linalg.norm(v1)
-        norm2 = np.linalg.norm(v2)
-        if norm1 < 1e-10 or norm2 < 1e-10:
-            angles.append(0)
-            continue
-
-        # TODO: Compute cosine of angle between v1 and v2
-        # cos(angle) = (v1 · v2) / (||v1|| ||v2||)
-        cos_angle = None  # Replace
-
-        # Clip to [-1, 1] for numerical stability
-        cos_angle = np.clip(cos_angle, -1, 1)
-        angle_degrees = np.degrees(np.arccos(cos_angle))
-        angles.append(angle_degrees)
-
-    angles = np.array(angles)
-
-    # Find large transitions (> 90 degrees = opposite direction)
-    large_transitions = np.where(angles > 90)[0] + 1  # +1 because angles[t] is between day t and t+1
-
-    return angles, large_transitions
-
-angles, transitions = analyze_regime_transitions(returns)
-
-print(f"Mean angle change between days: {np.mean(angles):.1f}°")
-print(f"Std of angle changes: {np.std(angles):.1f}°")
-print(f"Number of large transitions (>90°): {len(transitions)}")
-print(f"Fraction of days with large transitions: {100*len(transitions)/len(returns):.1f}%")`}
+    # TODO:
+    # Compute the angle between v1 and v2 using the formula above
+    pass`}
   solution={`import numpy as np
 
-def generate_market_data(n_days=500, n_assets=10, seed=42):
-    np.random.seed(seed)
-    regime_directions = np.random.randn(3, n_assets)
-    for i in range(3):
-        regime_directions[i] /= np.linalg.norm(regime_directions[i])
-    regime_weights = np.random.randn(n_days, 3) * np.array([2.0, 1.5, 1.0])
-    structured_part = regime_weights @ regime_directions
-    noise = np.random.randn(n_days, n_assets) * 0.3
-    return structured_part + noise
-
-returns = generate_market_data()
-
-def analyze_regime_transitions(R, n_components=3):
+def angle_between_vectors(v1, v2):
     """
-    Analyze how the market moves through regime space over time.
+    Compute the angle (in degrees) between two vectors.
     """
-    U, S, Vt = np.linalg.svd(R, full_matrices=False)
-    coords = R @ Vt[:n_components].T
+    dot = np.dot(v1, v2)
+    norm1 = np.linalg.norm(v1)
+    norm2 = np.linalg.norm(v2)
+    cos_angle = dot / (norm1 * norm2)
+    cos_angle = np.clip(cos_angle, -1, 1)  # Numerical stability
+    return np.degrees(np.arccos(cos_angle))`}
+  hint="cos(θ) = (v1 · v2) / (||v1|| × ||v2||). Use np.arccos to get the angle in radians, then np.degrees to convert."
+  tests={[
+    {
+      "input": ["np.array([1, 0])", "np.array([1, 0])"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "Same direction: angle = 0°",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([1, 0])", "np.array([0, 1])"],
+      "expected": 90.0,
+      "hidden": false,
+      "description": "Perpendicular: angle = 90°",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([1, 0])", "np.array([-1, 0])"],
+      "expected": 180.0,
+      "hidden": false,
+      "description": "Opposite directions: angle = 180°",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([1, 1])", "np.array([1, 0])"],
+      "expected": 45.0,
+      "hidden": true,
+      "description": "45 degree angle",
+      "tolerance": 0.1
+    }
+  ]}
+/>
 
-    angles = []
-    for t in range(1, len(coords)):
-        v1 = coords[t-1]
-        v2 = coords[t]
+### Exercise 2: Count Large Transitions
 
-        norm1 = np.linalg.norm(v1)
-        norm2 = np.linalg.norm(v2)
-        if norm1 < 1e-10 or norm2 < 1e-10:
-            angles.append(0)
-            continue
+A "large transition" is a day where the market sharply changed direction, typically defined as an angle greater than some threshold (e.g., 90° means the market moved in a roughly opposite direction compared to yesterday).
 
-        cos_angle = np.dot(v1, v2) / (norm1 * norm2)
-        cos_angle = np.clip(cos_angle, -1, 1)
-        angle_degrees = np.degrees(np.arccos(cos_angle))
-        angles.append(angle_degrees)
+<CodeExercise
+  id="code-6-1b"
+  starterCode={`import numpy as np
 
-    angles = np.array(angles)
-    large_transitions = np.where(angles > 90)[0] + 1
+def count_large_transitions(angles, threshold=90):
+    """
+    Count how many angle changes exceed a threshold.
 
-    return angles, large_transitions
+    A large transition indicates an abrupt regime change.
 
-angles, transitions = analyze_regime_transitions(returns)
+    Args:
+        angles: Array of angle changes (in degrees)
+        threshold: Minimum angle to count as "large" (default 90)
 
-print(f"Mean angle change between days: {np.mean(angles):.1f}°")
-print(f"Std of angle changes: {np.std(angles):.1f}°")
-print(f"Number of large transitions (>90°): {len(transitions)}")
-print(f"Fraction of days with large transitions: {100*len(transitions)/len(returns):.1f}%")`}
-  hint="The cosine of the angle is the dot product divided by the product of norms: cos(θ) = (v1 · v2) / (||v1|| × ||v2||)"
-  tests={[]}
+    Returns:
+        Number of angles exceeding the threshold
+
+    Example:
+        >>> angles = np.array([30, 45, 120, 15, 95])
+        >>> count_large_transitions(angles, threshold=90)
+        2  # Days with 120° and 95° changes
+    """
+    # TODO: Count how many values in angles exceed the threshold
+    pass`}
+  solution={`import numpy as np
+
+def count_large_transitions(angles, threshold=90):
+    """
+    Count how many angle changes exceed a threshold.
+    """
+    return np.sum(angles > threshold)`}
+  hint="np.sum(angles > threshold) counts how many True values there are in the boolean array."
+  tests={[
+    {
+      "input": ["np.array([30, 45, 120, 15, 95])", 90],
+      "expected": 2,
+      "hidden": false,
+      "description": "Two angles above 90°"
+    },
+    {
+      "input": ["np.array([10, 20, 30, 40, 50])", 90],
+      "expected": 0,
+      "hidden": false,
+      "description": "No angles above 90°"
+    },
+    {
+      "input": ["np.array([91, 92, 93])", 90],
+      "expected": 3,
+      "hidden": false,
+      "description": "All angles above 90°"
+    },
+    {
+      "input": ["np.array([45, 60, 75, 80, 85, 100])", 70],
+      "expected": 4,
+      "hidden": true,
+      "description": "Custom threshold of 70°"
+    }
+  ]}
+/>
+
+### Exercise 3: Find Transition Days
+
+Beyond counting, we often want to know **when** the large transitions occurred, which specific days had abrupt regime changes.
+
+<CodeExercise
+  id="code-6-1c"
+  starterCode={`import numpy as np
+
+def find_transition_days(angles, threshold=90):
+    """
+    Find the indices of days with large angle changes.
+
+    Args:
+        angles: Array of angle changes (in degrees)
+        threshold: Minimum angle to count as "large"
+
+    Returns:
+        Array of indices where angles exceed the threshold
+
+    Example:
+        >>> angles = np.array([30, 120, 45, 95, 20])
+        >>> find_transition_days(angles, threshold=90)
+        array([1, 3])  # Days 1 and 3 had large transitions
+    """
+    # TODO: Return indices where angles > threshold
+    # Hint: np.where returns indices where condition is True
+    pass`}
+  solution={`import numpy as np
+
+def find_transition_days(angles, threshold=90):
+    """
+    Find the indices of days with large angle changes.
+    """
+    return np.where(angles > threshold)[0]`}
+  hint="np.where(condition)[0] returns the indices where the condition is True."
+  tests={[
+    {
+      "input": ["np.array([30, 120, 45, 95, 20])", 90],
+      "expected": [1, 3],
+      "hidden": false,
+      "description": "Days 1 and 3 are transitions"
+    },
+    {
+      "input": ["np.array([180, 0, 180])", 90],
+      "expected": [0, 2],
+      "hidden": false,
+      "description": "First and last day are transitions"
+    },
+    {
+      "input": ["np.array([10, 20, 30])", 90],
+      "expected": [],
+      "hidden": false,
+      "description": "No transition days"
+    },
+    {
+      "input": ["np.array([50, 60, 70, 80, 90, 100])", 75],
+      "expected": [3, 4, 5],
+      "hidden": true,
+      "description": "Custom threshold"
+    }
+  ]}
 />
 
 <Quiz
   id="quiz-6-2"
   question="What's the geometric difference between a 'smooth' regime transition and an 'abrupt' one?"
   options={[
-    "Smooth transitions have larger magnitude changes",
-    "Smooth transitions show small angle changes over many days; abrupt transitions show large angle changes suddenly",
-    "Smooth transitions happen during low volatility",
-    "There is no geometric difference"
+    "Smooth transitions have larger magnitude changes in returns; abrupt ones have smaller magnitudes",
+    "Smooth transitions show small angle changes over many days; abrupt ones show large angles suddenly",
+    "Smooth transitions happen during periods of low volatility; abrupt ones occur in high volatility",
+    "There is no meaningful geometric difference between smooth and abrupt regime transitions"
   ]}
   correct={1}
-  explanation="Geometrically, a smooth transition is like gradually rotating your direction—small angle changes accumulate over time. An abrupt transition is a sharp turn—a large angle change between consecutive days. The market suddenly starts moving in a very different direction."
+  explanation="Geometrically, a smooth transition is like gradually rotating your direction, small angle changes accumulate over time. An abrupt transition is a sharp turn, a large angle change between consecutive days. The market suddenly starts moving in a very different direction."
 />
 
-<TextResponse
-  id="text-6-3"
-  question="Based on the angle analysis, do regime changes in your data look gradual or sudden? What might cause abrupt regime transitions in real markets?"
-  placeholder="Interpret the angle statistics..."
-  maxLength={400}
-  label="Interpretation"
-  referenceAnswer="If many days have small angle changes with occasional large ones, regimes are mostly stable with sudden transitions. In real markets, abrupt changes often coincide with news events (Fed announcements, earnings surprises, geopolitical events) that suddenly change how assets relate to each other."
+<Quiz
+  id="quiz-6-3"
+  question="In real markets, what typically causes abrupt regime transitions (large angle changes)?"
+  options={[
+    "Gradual changes in interest rates that accumulate slowly over months",
+    "Major news events like Fed announcements or geopolitical shocks",
+    "The passage of time itself as markets naturally evolve and mature",
+    "Improvements in data quality and measurement accuracy over time"
+  ]}
+  correct={1}
+  explanation="Abrupt regime transitions usually coincide with significant news events, Fed announcements, earnings surprises, geopolitical events, or market crashes. These events suddenly change how assets relate to each other, causing the market to snap into a different pattern of movement."
 />
+
+### What You Just Built
+
+You now have tools to **detect when the market changes its behavior**. Here's what each piece does:
+
+**Angle between vectors**: The formula $\cos(\theta) = \frac{\mathbf{v}_1 \cdot \mathbf{v}_2}{\|\mathbf{v}_1\| \|\mathbf{v}_2\|}$ measures directional similarity, ignoring magnitude. An angle of 0° means identical direction (same regime pattern). An angle of 90° means unrelated movement. An angle of 180° means opposite direction (regime reversal).
+
+**Counting large transitions**: By setting a threshold (like 90°), you define what counts as a "regime change." If 5% of days exceed 90°, regimes are relatively stable. If 30% exceed 90°, the market is chaotic with frequent pattern shifts.
+
+**Finding transition days**: Knowing *when* transitions occurred lets you correlate with real events. If you find a 150° angle on March 12, 2020, you can look up what happened, the WHO declared COVID a pandemic. The math identifies the anomaly; domain knowledge explains it.
+
+**A concrete example**: In normal markets, consecutive days might have angles of 20°-40°, the market drifts gradually. But on August 5, 2024 (Yen carry trade unwind), the angle might spike to 140°, assets that usually moved together suddenly moved apart. This is a detectable regime break.
+
+**Why this matters**: Regime detection is critical for risk management. Many trading strategies assume stable correlations, "if tech and growth usually move together, I'll hedge one with the other." When a regime breaks, those hedges fail catastrophically. Monitoring angle changes gives early warning. Funds like Bridgewater explicitly track regime changes to adjust their positions before losses compound.
 
 <Checkpoint
   id="checkpoint-6"
   title="Checkpoint: Regime Dynamics"
-  requiredBlockIds={["code-6-1", "quiz-6-2", "text-6-3"]}
-  minRequired={2}
-  lockedMessage="Complete at least 2 of the 3 tasks above to continue."
+  requiredBlockIds={["code-6-1a", "code-6-1b", "code-6-1c", "quiz-6-2", "quiz-6-3"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
 >
 
 **Key insight:** Regime transitions appear as directional changes in reduced space. Smooth rotations = gradual shifts. Large angle jumps = abrupt regime changes.
@@ -1051,21 +1614,501 @@ print(f"Fraction of days with large transitions: {100*len(transitions)/len(retur
 
 ---
 
-<GatedSection checkpointId="checkpoint-6" lockedTitle="Section 7: Final Synthesis">
+<GatedSection checkpointId="checkpoint-6" lockedTitle="Section 7: Putting It All Together">
 
-## Section 7: Final Synthesis
+## Section 7: Putting It All Together
 
-You've now discovered market regimes through pure geometric analysis. No prediction. No optimization. Just structure.
+You've built a complete toolkit for discovering market regimes. Now let's connect all the pieces and run a full analysis on realistic market data.
+
+### 7.1 Your Toolkit
+
+Here's every function you built, organized by purpose:
+
+**Data Representation (Section 1)**
+- `create_return_vector(returns_list)` → Convert daily returns to numpy array
+- `stack_return_vectors(day_vectors)` → Stack days into a returns matrix R
+- `get_dimensions(R)` → Extract (n_days, n_assets) from the matrix
+
+**Dimensionality Analysis (Section 2)**
+- `get_singular_values(R)` → Extract singular values from SVD
+- `explained_variance_ratios(singular_values)` → Compute % variance per direction
+
+**Dominant Patterns (Section 3)**
+- `get_dominant_directions(Vt, n_directions)` → Extract top k directions from SVD
+- `project_onto_direction(return_vector, direction)` → Project one day onto one direction
+- `variance_along_direction(R, direction)` → Measure importance of a direction
+
+**Visualization (Section 4)**
+- `project_all_days(R, directions)` → Project entire dataset to reduced space
+- `distances_from_center(coords)` → Find how unusual each day is
+- `find_most_extreme_day(coords)` → Identify the most extreme market day
+
+**Reconstruction (Section 5)**
+- `reconstruct_low_rank(U, S, Vt, k)` → Approximate data with k components
+- `compute_residuals(original, reconstructed)` → What we lost
+- `reconstruction_quality(original, reconstructed)` → Fraction of variance preserved
+
+**Regime Transitions (Section 6)**
+- `angle_between_vectors(v1, v2)` → Measure directional change between days
+- `count_large_transitions(angles, threshold)` → Count regime breaks
+- `find_transition_days(angles, threshold)` → Identify when regimes changed
+
+### 7.2 Full Analysis Pipeline
+
+Now let's run everything on simulated market data that mimics real regime behavior. This code combines all your functions into one complete analysis.
+
+<CodeExercise
+  id="code-7-1"
+  starterCode={`import numpy as np
+import matplotlib.pyplot as plt
+
+# ============================================================
+# STEP 1: Generate realistic market data with regime structure
+# ============================================================
+
+def generate_regime_market(n_days=500, n_assets=10, seed=42):
+    np.random.seed(seed)
+
+    # Three regime patterns
+    tech_up = np.array([0.5, 0.5, 0.4, 0.3, -0.2, -0.2, -0.1, 0, 0, 0])
+    value_up = np.array([-0.2, -0.2, -0.1, 0.1, 0.5, 0.5, 0.4, 0.2, 0.1, 0])
+    crisis = np.array([0.4, 0.4, 0.4, 0.3, 0.3, 0.3, 0.2, 0.2, 0.1, 0.1])
+
+    # Normalize directions
+    tech_up = tech_up / np.linalg.norm(tech_up)
+    value_up = value_up / np.linalg.norm(value_up)
+    crisis = crisis / np.linalg.norm(crisis)
+
+    returns, labels = [], []
+    for t in range(n_days):
+        if t < 150:
+            base = tech_up * np.random.randn() * 0.02
+            labels.append('A: Risk-On')
+        elif t < 350:
+            base = value_up * np.random.randn() * 0.015
+            labels.append('B: Rotation')
+        else:
+            base = crisis * np.random.randn() * 0.035
+            labels.append('C: Crisis')
+        returns.append(base + np.random.randn(n_assets) * 0.005)
+
+    return np.array(returns), labels
+
+# ============================================================
+# STEP 2: All our functions from previous sections
+# ============================================================
+
+def get_singular_values(R):
+    return np.linalg.svd(R, full_matrices=False)[1]
+
+def explained_variance_ratios(S):
+    return (S ** 2) / np.sum(S ** 2)
+
+def project_all_days(R, directions):
+    return R @ directions.T
+
+def distances_from_center(coords):
+    return np.linalg.norm(coords - np.mean(coords, axis=0), axis=1)
+
+def angle_between_vectors(v1, v2):
+    n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+    if n1 < 1e-10 or n2 < 1e-10: return 0.0
+    return np.degrees(np.arccos(np.clip(np.dot(v1, v2) / (n1 * n2), -1, 1)))
+
+def reconstruction_quality(original, reconstructed):
+    return np.sum(reconstructed ** 2) / np.sum(original ** 2)
+
+# ============================================================
+# STEP 3: Run the full analysis
+# ============================================================
+
+R, labels = generate_regime_market()
+U, S, Vt = np.linalg.svd(R, full_matrices=False)
+ratios = explained_variance_ratios(S)
+coords = project_all_days(R, Vt[:2])
+distances = distances_from_center(coords)
+
+# Compute angles between consecutive days
+angles = [angle_between_vectors(coords[t-1], coords[t]) for t in range(1, len(coords))]
+angles = np.array(angles)
+
+# ============================================================
+# RESULTS TABLE 1: Variance Explained
+# ============================================================
+
+print("=" * 60)
+print("TABLE 1: VARIANCE EXPLAINED BY EACH DIRECTION")
+print("=" * 60)
+print(f"{'Direction':<12} {'Variance %':<12} {'Cumulative %':<12}")
+print("-" * 36)
+cumulative = 0
+for i in range(5):
+    cumulative += ratios[i] * 100
+    print(f"PC {i+1:<9} {ratios[i]*100:>8.1f}%     {cumulative:>8.1f}%")
+print("-" * 36)
+print(f"Top 3 directions capture {sum(ratios[:3])*100:.1f}% of all market movement")
+print()
+
+# ============================================================
+# RESULTS TABLE 2: Reconstruction Quality
+# ============================================================
+
+print("=" * 60)
+print("TABLE 2: RECONSTRUCTION QUALITY")
+print("=" * 60)
+print(f"{'Components':<12} {'Quality':<12} {'Interpretation':<30}")
+print("-" * 54)
+for k in [1, 2, 3, 5, 10]:
+    R_approx = U[:, :k] @ np.diag(S[:k]) @ Vt[:k, :]
+    q = reconstruction_quality(R, R_approx) * 100
+    if q < 50: interp = "Major information loss"
+    elif q < 80: interp = "Captures main patterns"
+    elif q < 95: interp = "Good approximation"
+    else: interp = "Near-perfect reconstruction"
+    print(f"{k:<12} {q:>8.1f}%     {interp:<30}")
+print()
+
+# ============================================================
+# RESULTS TABLE 3: Regime Comparison
+# ============================================================
+
+print("=" * 60)
+print("TABLE 3: REGIME CHARACTERISTICS")
+print("=" * 60)
+print(f"{'Regime':<15} {'Days':<8} {'Mean Dist':<12} {'Volatility':<12}")
+print("-" * 47)
+
+regime_names = ['A: Risk-On', 'B: Rotation', 'C: Crisis']
+for regime in regime_names:
+    mask = np.array([l == regime for l in labels])
+    d = distances[mask]
+    print(f"{regime:<15} {sum(mask):<8} {np.mean(d):>8.4f}     {np.std(d):>8.4f}")
+print("-" * 47)
+print("Note: Higher distance = more extreme days, Higher volatility = less stable")
+print()
+
+# ============================================================
+# RESULTS TABLE 4: Transition Detection
+# ============================================================
+
+print("=" * 60)
+print("TABLE 4: REGIME TRANSITIONS DETECTED")
+print("=" * 60)
+transitions_90 = np.where(angles > 90)[0] + 1
+transitions_120 = np.where(angles > 120)[0] + 1
+
+print(f"Large transitions (>90°):  {len(transitions_90)} days")
+print(f"Major transitions (>120°): {len(transitions_120)} days")
+print(f"\\nKnown regime boundaries: Day 150 (A→B), Day 350 (B→C)")
+print(f"\\nTop 5 largest angle changes:")
+top_5_idx = np.argsort(angles)[-5:][::-1]
+for idx in top_5_idx:
+    day = idx + 1
+    regime_before = labels[idx][:1]
+    regime_after = labels[idx+1][:1]
+    boundary = "← REGIME BOUNDARY" if day in [150, 350] else ""
+    print(f"  Day {day:>3}: {angles[idx]:>6.1f}° ({regime_before}→{regime_after}) {boundary}")
+print()
+
+# ============================================================
+# VISUALIZATION: 2D Regime Map
+# ============================================================
+
+print("=" * 60)
+print("VISUALIZATION: Market Days in Reduced Space")
+print("=" * 60)
+
+fig, axes = plt.subplots(2, 1, figsize=(8, 10))
+
+# Plot 1: Colored by regime
+ax1 = axes[0]
+colors = {'A: Risk-On': '#22c55e', 'B: Rotation': '#3b82f6', 'C: Crisis': '#ef4444'}
+for regime in regime_names:
+    mask = np.array([l == regime for l in labels])
+    ax1.scatter(coords[mask, 0], coords[mask, 1], c=colors[regime],
+                label=regime, alpha=0.6, s=20)
+
+ax1.axhline(y=0, color='gray', linestyle='--', alpha=0.3)
+ax1.axvline(x=0, color='gray', linestyle='--', alpha=0.3)
+ax1.set_xlabel('Principal Component 1')
+ax1.set_ylabel('Principal Component 2')
+ax1.set_title('Market Days Colored by Regime')
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# Plot 2: Colored by time (trajectory)
+ax2 = axes[1]
+scatter = ax2.scatter(coords[:, 0], coords[:, 1], c=range(len(coords)),
+                       cmap='viridis', alpha=0.6, s=20)
+ax2.axhline(y=0, color='gray', linestyle='--', alpha=0.3)
+ax2.axvline(x=0, color='gray', linestyle='--', alpha=0.3)
+
+# Mark regime transitions
+ax2.scatter(coords[150, 0], coords[150, 1], c='red', s=200, marker='*',
+            label='Day 150: A→B', zorder=5)
+ax2.scatter(coords[350, 0], coords[350, 1], c='orange', s=200, marker='*',
+            label='Day 350: B→C', zorder=5)
+
+ax2.set_xlabel('Principal Component 1')
+ax2.set_ylabel('Principal Component 2')
+ax2.set_title('Market Trajectory Over Time')
+ax2.legend()
+ax2.grid(True, alpha=0.3)
+cbar = plt.colorbar(scatter, ax=ax2)
+cbar.set_label('Day Number')
+
+plt.tight_layout()
+plt.show()
+
+print("\\n✓ Visualization complete")`}
+  solution={`import numpy as np
+import matplotlib.pyplot as plt
+
+# ============================================================
+# STEP 1: Generate realistic market data with regime structure
+# ============================================================
+
+def generate_regime_market(n_days=500, n_assets=10, seed=42):
+    np.random.seed(seed)
+
+    # Three regime patterns
+    tech_up = np.array([0.5, 0.5, 0.4, 0.3, -0.2, -0.2, -0.1, 0, 0, 0])
+    value_up = np.array([-0.2, -0.2, -0.1, 0.1, 0.5, 0.5, 0.4, 0.2, 0.1, 0])
+    crisis = np.array([0.4, 0.4, 0.4, 0.3, 0.3, 0.3, 0.2, 0.2, 0.1, 0.1])
+
+    # Normalize directions
+    tech_up = tech_up / np.linalg.norm(tech_up)
+    value_up = value_up / np.linalg.norm(value_up)
+    crisis = crisis / np.linalg.norm(crisis)
+
+    returns, labels = [], []
+    for t in range(n_days):
+        if t < 150:
+            base = tech_up * np.random.randn() * 0.02
+            labels.append('A: Risk-On')
+        elif t < 350:
+            base = value_up * np.random.randn() * 0.015
+            labels.append('B: Rotation')
+        else:
+            base = crisis * np.random.randn() * 0.035
+            labels.append('C: Crisis')
+        returns.append(base + np.random.randn(n_assets) * 0.005)
+
+    return np.array(returns), labels
+
+# ============================================================
+# STEP 2: All our functions from previous sections
+# ============================================================
+
+def get_singular_values(R):
+    return np.linalg.svd(R, full_matrices=False)[1]
+
+def explained_variance_ratios(S):
+    return (S ** 2) / np.sum(S ** 2)
+
+def project_all_days(R, directions):
+    return R @ directions.T
+
+def distances_from_center(coords):
+    return np.linalg.norm(coords - np.mean(coords, axis=0), axis=1)
+
+def angle_between_vectors(v1, v2):
+    n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+    if n1 < 1e-10 or n2 < 1e-10: return 0.0
+    return np.degrees(np.arccos(np.clip(np.dot(v1, v2) / (n1 * n2), -1, 1)))
+
+def reconstruction_quality(original, reconstructed):
+    return np.sum(reconstructed ** 2) / np.sum(original ** 2)
+
+# ============================================================
+# STEP 3: Run the full analysis
+# ============================================================
+
+R, labels = generate_regime_market()
+U, S, Vt = np.linalg.svd(R, full_matrices=False)
+ratios = explained_variance_ratios(S)
+coords = project_all_days(R, Vt[:2])
+distances = distances_from_center(coords)
+
+# Compute angles between consecutive days
+angles = [angle_between_vectors(coords[t-1], coords[t]) for t in range(1, len(coords))]
+angles = np.array(angles)
+
+# ============================================================
+# RESULTS TABLE 1: Variance Explained
+# ============================================================
+
+print("=" * 60)
+print("TABLE 1: VARIANCE EXPLAINED BY EACH DIRECTION")
+print("=" * 60)
+print(f"{'Direction':<12} {'Variance %':<12} {'Cumulative %':<12}")
+print("-" * 36)
+cumulative = 0
+for i in range(5):
+    cumulative += ratios[i] * 100
+    print(f"PC {i+1:<9} {ratios[i]*100:>8.1f}%     {cumulative:>8.1f}%")
+print("-" * 36)
+print(f"Top 3 directions capture {sum(ratios[:3])*100:.1f}% of all market movement")
+print()
+
+# ============================================================
+# RESULTS TABLE 2: Reconstruction Quality
+# ============================================================
+
+print("=" * 60)
+print("TABLE 2: RECONSTRUCTION QUALITY")
+print("=" * 60)
+print(f"{'Components':<12} {'Quality':<12} {'Interpretation':<30}")
+print("-" * 54)
+for k in [1, 2, 3, 5, 10]:
+    R_approx = U[:, :k] @ np.diag(S[:k]) @ Vt[:k, :]
+    q = reconstruction_quality(R, R_approx) * 100
+    if q < 50: interp = "Major information loss"
+    elif q < 80: interp = "Captures main patterns"
+    elif q < 95: interp = "Good approximation"
+    else: interp = "Near-perfect reconstruction"
+    print(f"{k:<12} {q:>8.1f}%     {interp:<30}")
+print()
+
+# ============================================================
+# RESULTS TABLE 3: Regime Comparison
+# ============================================================
+
+print("=" * 60)
+print("TABLE 3: REGIME CHARACTERISTICS")
+print("=" * 60)
+print(f"{'Regime':<15} {'Days':<8} {'Mean Dist':<12} {'Volatility':<12}")
+print("-" * 47)
+
+regime_names = ['A: Risk-On', 'B: Rotation', 'C: Crisis']
+for regime in regime_names:
+    mask = np.array([l == regime for l in labels])
+    d = distances[mask]
+    print(f"{regime:<15} {sum(mask):<8} {np.mean(d):>8.4f}     {np.std(d):>8.4f}")
+print("-" * 47)
+print("Note: Higher distance = more extreme days, Higher volatility = less stable")
+print()
+
+# ============================================================
+# RESULTS TABLE 4: Transition Detection
+# ============================================================
+
+print("=" * 60)
+print("TABLE 4: REGIME TRANSITIONS DETECTED")
+print("=" * 60)
+transitions_90 = np.where(angles > 90)[0] + 1
+transitions_120 = np.where(angles > 120)[0] + 1
+
+print(f"Large transitions (>90°):  {len(transitions_90)} days")
+print(f"Major transitions (>120°): {len(transitions_120)} days")
+print(f"\\nKnown regime boundaries: Day 150 (A→B), Day 350 (B→C)")
+print(f"\\nTop 5 largest angle changes:")
+top_5_idx = np.argsort(angles)[-5:][::-1]
+for idx in top_5_idx:
+    day = idx + 1
+    regime_before = labels[idx][:1]
+    regime_after = labels[idx+1][:1]
+    boundary = "← REGIME BOUNDARY" if day in [150, 350] else ""
+    print(f"  Day {day:>3}: {angles[idx]:>6.1f}° ({regime_before}→{regime_after}) {boundary}")
+print()
+
+# ============================================================
+# VISUALIZATION: 2D Regime Map
+# ============================================================
+
+print("=" * 60)
+print("VISUALIZATION: Market Days in Reduced Space")
+print("=" * 60)
+
+fig, axes = plt.subplots(2, 1, figsize=(8, 10))
+
+# Plot 1: Colored by regime
+ax1 = axes[0]
+colors = {'A: Risk-On': '#22c55e', 'B: Rotation': '#3b82f6', 'C: Crisis': '#ef4444'}
+for regime in regime_names:
+    mask = np.array([l == regime for l in labels])
+    ax1.scatter(coords[mask, 0], coords[mask, 1], c=colors[regime],
+                label=regime, alpha=0.6, s=20)
+
+ax1.axhline(y=0, color='gray', linestyle='--', alpha=0.3)
+ax1.axvline(x=0, color='gray', linestyle='--', alpha=0.3)
+ax1.set_xlabel('Principal Component 1')
+ax1.set_ylabel('Principal Component 2')
+ax1.set_title('Market Days Colored by Regime')
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# Plot 2: Colored by time (trajectory)
+ax2 = axes[1]
+scatter = ax2.scatter(coords[:, 0], coords[:, 1], c=range(len(coords)),
+                       cmap='viridis', alpha=0.6, s=20)
+ax2.axhline(y=0, color='gray', linestyle='--', alpha=0.3)
+ax2.axvline(x=0, color='gray', linestyle='--', alpha=0.3)
+
+# Mark regime transitions
+ax2.scatter(coords[150, 0], coords[150, 1], c='red', s=200, marker='*',
+            label='Day 150: A→B', zorder=5)
+ax2.scatter(coords[350, 0], coords[350, 1], c='orange', s=200, marker='*',
+            label='Day 350: B→C', zorder=5)
+
+ax2.set_xlabel('Principal Component 1')
+ax2.set_ylabel('Principal Component 2')
+ax2.set_title('Market Trajectory Over Time')
+ax2.legend()
+ax2.grid(True, alpha=0.3)
+cbar = plt.colorbar(scatter, ax=ax2)
+cbar.set_label('Day Number')
+
+plt.tight_layout()
+plt.show()
+
+print("\\n✓ Visualization complete")`}
+  hint="This is a run-through exercise. Click Run Tests to execute the full pipeline, see the tables, and generate the visualization."
+  tests={[]}
+/>
+
+### Understanding Your Results
+
+**Table 1 (Variance Explained)**: Shows how much of market movement each direction captures. If the first 2-3 directions explain 70%+, the market has strong regime structure. The cumulative column tells you how much total information you'd retain with k components.
+
+**Table 2 (Reconstruction Quality)**: Shows the compression-accuracy tradeoff. With 3 components, you might retain 85% of information while reducing 10 dimensions to 3. This is the foundation of factor models, most market behavior can be explained by a few underlying drivers.
+
+**Table 3 (Regime Characteristics)**:
+- **Mean Distance**: How far from "average" each regime sits. Crisis regimes typically have higher distances (more extreme movements).
+- **Volatility (Std)**: How spread out the days are within each regime. Higher volatility means less predictable behavior within that regime.
+
+**Table 4 (Transition Detection)**: Tests whether your tools can find regime boundaries. The "Top 5 largest angle changes" should include days near 150 and 350 (our built-in regime switches). If they appear, your transition detector works!
+
+**The Visualization**:
+- **Left plot (colored by regime)**: Each color should form a distinct cluster. If regimes overlap completely, the SVD didn't capture regime structure. Clear separation = successful regime discovery.
+- **Right plot (colored by time)**: Shows the market's trajectory through regime space. The color gradient from purple (early) to yellow (late) reveals how the market moved. Stars mark the known transition points.
+
+### 7.3 What You've Achieved
+
+You started with a 500 × 10 matrix of numbers, completely uninterpretable. Now you can:
+
+- **Compress** 10 dimensions into 2-3 while keeping 80%+ of the information
+- **Visualize** where each day lives in "regime space"
+- **Identify** the most extreme/unusual market days
+- **Detect** when the market switched from one pattern to another
+- **Quantify** how much structure vs. noise exists in the data
+
+This is real quantitative analysis. The same techniques applied to actual market data (ETFs, stocks, futures) reveal genuine structure that practitioners use for risk management, factor investing, and regime-aware trading strategies.
 
 <TextResponse
   id="synthesis-7-1"
-  question="In plain language (no formulas, no technical terms), explain: What is a market regime? Why do we need linear algebra to see it? What did you discover in this project?"
-  placeholder="Write 3-5 sentences explaining to someone who has never studied math..."
+  question="In plain language (no formulas), explain to someone who has never studied math: What is a market regime? What did you build in this project? Why does it matter?"
+  placeholder="Write 3-5 sentences..."
   maxLength={800}
-  label="Synthesis"
+  label="Final Reflection"
   isSynthesis={true}
-  referenceAnswer="A market regime is a recurring pattern in how different assets move together—like a fingerprint of market behavior that shows up again and again. We need linear algebra because these patterns involve combinations of many assets at once, not individual stocks, and our eyes can't see structure in 10 dimensions. By finding the main directions of market movement and projecting onto them, we can see regimes as clusters or trajectories in a simple 2D picture. The key discovery is that markets don't move randomly through all possible directions—they mostly move along a few dominant patterns, and we can identify when the market switches from one pattern to another."
-  selfCheck="Explained what a regime is without using technical terms|Explained why linear algebra is needed|Described what structure was revealed|Mentioned regime transitions or changes"
+  referenceAnswer="A market regime is a recurring pattern in how different assets move together, like a fingerprint of market behavior that shows up again and again. I built tools that compress complex market data into simple pictures, identify the dominant patterns driving markets, and detect when those patterns suddenly change. This matters because understanding regimes helps manage risk (knowing when your usual assumptions might break) and explains why markets aren't random, they're driven by a handful of underlying forces that we can now see and measure."
+  selfCheck="Explained what a regime is without using technical terms|Described what tools were built|Explained why this matters for real-world finance"
+/>
+
+<DownloadNotebook
+  notebookPath="/notebooks/market-regime-detection.ipynb"
+  title="Download Complete Notebook"
 />
 
 </GatedSection>

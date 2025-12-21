@@ -1,0 +1,2344 @@
+# Build a Portfolio Optimizer: From Efficient Frontier to Real-World Constraints
+
+You have expected returns and a covariance matrix. Your job is to convert these into portfolio weights that balance risk and return under realistic constraints.
+
+This is not a theory lesson. This is a quant workflow. By the end, you will have a working portfolio optimization tool that constructs efficient portfolios, handles real-world constraints, and outputs a defensible allocation decision.
+
+---
+
+## Section 0: The Quant Task and the Objects
+
+Portfolio optimization converts assumptions about asset returns into concrete portfolio weights. The inputs are statistical estimates. The output is a vector of weights that tells you exactly how much capital to allocate to each asset.
+
+### The Mathematical Objects
+
+**Expected return vector** $\mu \in \mathbb{R}^n$: Each entry $\mu_i$ is your estimate of the expected return for asset $i$.
+
+**Covariance matrix** $\Sigma \in \mathbb{R}^{n \times n}$: Entry $\Sigma_{ij}$ captures the covariance between assets $i$ and $j$. The diagonal $\Sigma_{ii}$ is the variance of asset $i$.
+
+**Weight vector** $w \in \mathbb{R}^n$: Entry $w_i$ is the fraction of your portfolio allocated to asset $i$.
+
+### Portfolio Return and Risk
+
+Given weights $w$, the portfolio's expected return is:
+
+$$\mu_p = w^\top \mu = \sum_{i=1}^n w_i \mu_i$$
+
+The portfolio variance is:
+
+$$\sigma_p^2 = w^\top \Sigma w = \sum_{i=1}^n \sum_{j=1}^n w_i w_j \Sigma_{ij}$$
+
+These two formulas are the foundation of everything that follows.
+
+<TextResponse
+  id="text-0-1"
+  question="Write the mathematical form of: (1) the budget constraint requiring weights to sum to 1, (2) the long-only constraint preventing short positions, and (3) state the dimensions of μ, Σ, and w for a portfolio of n assets."
+  placeholder="Use mathematical notation..."
+  maxLength={500}
+  label="Math Modeling"
+  referenceAnswer="(1) Budget constraint: Σᵢwᵢ = 1 or 1ᵀw = 1. (2) Long-only constraint: wᵢ ≥ 0 for all i, or w ≥ 0. (3) Dimensions: μ ∈ ℝⁿ (n×1 vector), Σ ∈ ℝⁿˣⁿ (n×n symmetric matrix), w ∈ ℝⁿ (n×1 vector)."
+/>
+
+<Quiz
+  id="quiz-0-1"
+  question="For a portfolio with 5 assets, what is the shape of the covariance matrix Σ?"
+  options={[
+    "5×1 vector because it stores variance for each asset",
+    "5×5 matrix because it captures pairwise relationships between all assets",
+    "1×5 vector because portfolio risk is a single number",
+    "25×1 vector because we flatten all covariances into a list"
+  ]}
+  correct={1}
+  explanation="The covariance matrix is n×n because each entry (i,j) represents the covariance between asset i and asset j. For 5 assets, this is a 5×5 symmetric matrix with 5 variances on the diagonal and 10 unique covariances off-diagonal."
+/>
+
+### Exercise 1: Define the Data Objects
+
+Create the fundamental objects: expected returns vector and covariance matrix. We'll use a small dataset of 4 assets.
+
+<CodeExercise
+  id="code-0-1a"
+  starterCode={`import numpy as np
+
+def validate_covariance(Sigma):
+    """
+    Check that a covariance matrix is valid.
+
+    A valid covariance matrix must be:
+    1. Square
+    2. Symmetric: Sigma = Sigma.T
+    3. Positive semi-definite: all eigenvalues >= 0
+
+    Returns:
+        int: 1 if valid, 0 if invalid
+    """
+    # TODO: Check if square (return 0 if not)
+
+    # TODO: Check if symmetric (use np.allclose for numerical tolerance)
+
+    # TODO: Check if positive semi-definite (eigenvalues >= 0)
+    # Hint: Use np.linalg.eigvalsh for symmetric matrices
+
+    # TODO: Return 1 if all checks pass
+    pass
+
+def create_portfolio_data():
+    """
+    Create sample expected returns and covariance matrix for 4 assets.
+
+    Returns:
+        Tuple: (mu, Sigma)
+        - mu: numpy array of shape (4,) with expected returns
+        - Sigma: numpy array of shape (4,4) covariance matrix
+
+    Use these values:
+    - Expected returns: [0.12, 0.10, 0.07, 0.03] (12%, 10%, 7%, 3%)
+    - Volatilities: [0.20, 0.18, 0.15, 0.05] (20%, 18%, 15%, 5%)
+    - Correlation matrix:
+        [[1.0, 0.5, 0.3, 0.0],
+         [0.5, 1.0, 0.4, 0.1],
+         [0.3, 0.4, 1.0, 0.2],
+         [0.0, 0.1, 0.2, 1.0]]
+
+    Remember: Sigma_ij = rho_ij * sigma_i * sigma_j
+    """
+    # TODO: Define the expected returns vector mu
+
+    # TODO: Define volatilities for each asset
+
+    # TODO: Define the correlation matrix
+
+    # TODO: Convert correlation matrix to covariance matrix
+    # Hint: Sigma = diag(sigma) @ Corr @ diag(sigma)
+
+    # TODO: Return mu and Sigma
+    pass`}
+  solution={`import numpy as np
+
+def validate_covariance(Sigma):
+    if Sigma.shape[0] != Sigma.shape[1]:
+        return 0
+
+    if not np.allclose(Sigma, Sigma.T):
+        return 0
+
+    eigenvalues = np.linalg.eigvalsh(Sigma)
+    if np.min(eigenvalues) < -1e-10:
+        return 0
+
+    return 1
+
+def create_portfolio_data():
+    mu = np.array([0.12, 0.10, 0.07, 0.03])
+
+    volatilities = np.array([0.20, 0.18, 0.15, 0.05])
+
+    corr = np.array([
+        [1.0, 0.5, 0.3, 0.0],
+        [0.5, 1.0, 0.4, 0.1],
+        [0.3, 0.4, 1.0, 0.2],
+        [0.0, 0.1, 0.2, 1.0]
+    ])
+
+    D = np.diag(volatilities)
+    Sigma = D @ corr @ D
+
+    return mu, Sigma`}
+  hint="To convert correlation to covariance: multiply each entry by the product of the corresponding volatilities. Use Sigma = D @ Corr @ D where D = diag(volatilities)."
+  tests={[
+    {
+      "input": ["np.eye(2)"],
+      "expected": 1,
+      "hidden": false,
+      "description": "Identity matrix is valid"
+    },
+    {
+      "input": ["np.array([[1, 2], [3, 4]])"],
+      "expected": 0,
+      "hidden": false,
+      "description": "Non-symmetric matrix is invalid"
+    },
+    {
+      "input": ["np.array([[1, 0], [0, 1]])"],
+      "expected": 1,
+      "hidden": false,
+      "description": "2x2 identity is valid"
+    }
+  ]}
+/>
+
+### Exercise 2: Portfolio Metrics Functions
+
+Build the core functions that compute portfolio return and risk. These will be reused throughout the project.
+
+<CodeExercise
+  id="code-0-1b"
+  starterCode={`import numpy as np
+
+def portfolio_return(w, mu):
+    """
+    Compute expected portfolio return.
+
+    Args:
+        w: Weight vector (n,)
+        mu: Expected returns vector (n,)
+
+    Returns:
+        float: Portfolio expected return = w'mu
+    """
+    # TODO: Implement w'mu (dot product)
+    pass
+
+def portfolio_variance(w, Sigma):
+    """
+    Compute portfolio variance.
+
+    Args:
+        w: Weight vector (n,)
+        Sigma: Covariance matrix (n,n)
+
+    Returns:
+        float: Portfolio variance = w'Sigma*w
+    """
+    # TODO: Implement w'Sigma*w (quadratic form)
+    pass
+
+def portfolio_volatility(w, Sigma):
+    """
+    Compute portfolio volatility (standard deviation).
+
+    Args:
+        w: Weight vector (n,)
+        Sigma: Covariance matrix (n,n)
+
+    Returns:
+        float: Portfolio volatility = sqrt(w'Sigma*w)
+    """
+    # TODO: Return square root of variance
+    pass`}
+  solution={`import numpy as np
+
+def portfolio_return(w, mu):
+    return np.dot(w, mu)
+
+def portfolio_variance(w, Sigma):
+    return w @ Sigma @ w
+
+def portfolio_volatility(w, Sigma):
+    return np.sqrt(portfolio_variance(w, Sigma))`}
+  hint="Use np.dot(w, mu) for the return. For variance, use the quadratic form w @ Sigma @ w."
+  tests={[
+    {
+      "input": ["np.array([0.25, 0.25, 0.25, 0.25])", "np.array([0.12, 0.10, 0.07, 0.03])"],
+      "expected": 0.08,
+      "hidden": false,
+      "description": "Equal weight return",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([1.0, 0.0, 0.0, 0.0])", "np.array([0.12, 0.10, 0.07, 0.03])"],
+      "expected": 0.12,
+      "hidden": false,
+      "description": "Single asset return",
+      "tolerance": 0.001
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You've created the **fundamental data structures for portfolio optimization**. Here's what each piece does:
+
+**Covariance matrix validation** (`validate_covariance()`): Checks three critical properties—symmetry, square shape, and positive semi-definiteness. A matrix failing any check would produce meaningless portfolio weights. This validation prevents garbage-in-garbage-out.
+
+**Expected returns vector** (`mu`): A 1D array where each entry is your best estimate of an asset's future return. In practice, these come from factor models, analyst forecasts, or historical averages. The vector format lets you compute portfolio return as a simple dot product: $\mu_p = w^\top \mu$.
+
+**Covariance matrix** (`Sigma`): The heart of portfolio risk. Each off-diagonal entry captures how two assets move together. You built it from correlations and volatilities using $\Sigma = D \cdot \text{Corr} \cdot D$ where $D$ is the diagonal volatility matrix. This decomposition is standard practice—it's easier to estimate correlations and volatilities separately than to estimate covariances directly.
+
+**Portfolio metrics** (`portfolio_return()`, `portfolio_variance()`): These two functions compute everything you need to know about a portfolio. Given any weight vector, you can immediately assess its expected return and risk. Every optimizer uses these functions internally to evaluate candidate portfolios.
+
+**Why this matters**: These objects are universal. Whether you're building a simple mean-variance optimizer or a complex factor-based risk model, you start with $\mu$, $\Sigma$, and $w$. The formulas $\mu_p = w^\top \mu$ and $\sigma_p^2 = w^\top \Sigma w$ appear in every quantitative finance textbook because they're the foundation of portfolio theory.
+
+<Checkpoint
+  id="checkpoint-0"
+  title="Checkpoint: Portfolio Objects"
+  requiredBlockIds={["text-0-1", "quiz-0-1", "code-0-1a", "code-0-1b"]}
+  minRequired={3}
+  lockedMessage="Complete at least 3 of the 4 tasks above to continue."
+>
+
+**Key objects defined:** Expected returns $\mu$, covariance matrix $\Sigma$, weight vector $w$, and functions for portfolio return and variance.
+
+</Checkpoint>
+
+---
+
+<GatedSection checkpointId="checkpoint-0" lockedTitle="Section 1: Minimum Variance Portfolio">
+
+## Section 1: Minimum Variance Portfolio
+
+The simplest meaningful portfolio optimization problem: find the weights that minimize risk, without any return target.
+
+### Why Minimum Variance?
+
+This portfolio represents the left-most point on the efficient frontier. It's a risk baseline—no other portfolio achieves lower volatility under the same constraints.
+
+The optimization problem is:
+
+$$\min_w \quad w^\top \Sigma w$$
+
+subject to:
+- $\mathbf{1}^\top w = 1$ (budget constraint)
+- $w \geq 0$ (long-only)
+
+This is a **convex quadratic program**: minimizing a quadratic function with linear constraints. CVXPY handles it naturally.
+
+<Quiz
+  id="quiz-1-1a"
+  question="What is the objective function in the minimum variance portfolio problem?"
+  options={[
+    "Maximize wᵀμ (expected return)",
+    "Minimize wᵀΣw (portfolio variance)",
+    "Minimize ||w||₂ (weight magnitude)",
+    "Maximize wᵀΣ⁻¹w (inverse variance)"
+  ]}
+  correct={1}
+  explanation="The minimum variance problem minimizes portfolio variance wᵀΣw, where Σ is the covariance matrix. This quadratic form captures how portfolio risk depends on both individual asset variances and their covariances."
+/>
+
+<Quiz
+  id="quiz-1-1b"
+  question="Which constraint ensures that all capital is fully invested (no cash held)?"
+  options={[
+    "w ≥ 0 (non-negativity)",
+    "w ≤ 1 (upper bound)",
+    "1ᵀw = 1 (weights sum to one)",
+    "wᵀΣw ≤ σ² (risk limit)"
+  ]}
+  correct={2}
+  explanation="The budget constraint 1ᵀw = 1 (or equivalently Σᵢwᵢ = 1) ensures that all portfolio weights sum to 100%. This means all capital is allocated with no cash remaining."
+/>
+
+<Quiz
+  id="quiz-1-1c"
+  question="What does the constraint w ≥ 0 enforce in portfolio optimization?"
+  options={[
+    "All assets must have equal weight",
+    "No short selling allowed (long-only positions)",
+    "Portfolio return must be positive",
+    "Covariance matrix must be positive definite"
+  ]}
+  correct={1}
+  explanation="The constraint w ≥ 0 means each weight must be non-negative, preventing short positions. This is the long-only constraint—you can only buy assets, not sell them short."
+/>
+
+<Quiz
+  id="quiz-1-1d"
+  question="Why is the minimum variance optimization problem convex?"
+  options={[
+    "Because Σ is symmetric, which guarantees convexity",
+    "Because CVXPY automatically converts problems to convex form",
+    "Because the objective wᵀΣw is convex (Σ is PSD) and all constraints are linear",
+    "Because minimization problems are always convex by definition"
+  ]}
+  correct={2}
+  explanation="The problem is convex because: (1) the objective wᵀΣw is a convex quadratic form since Σ is positive semi-definite, and (2) the constraints 1ᵀw = 1 and w ≥ 0 are linear (hence convex). A convex objective with convex constraints yields a convex optimization problem."
+/>
+
+<Quiz
+  id="quiz-1-1"
+  question="Why does the minimum variance portfolio typically hold many assets rather than just one?"
+  options={[
+    "CVXPY forces diversification as a default solver behavior",
+    "Correlation between assets allows variance reduction through diversification",
+    "The budget constraint mathematically requires spreading across all assets",
+    "Single-asset portfolios are rejected by the long-only constraint"
+  ]}
+  correct={1}
+  explanation="When assets are not perfectly correlated, combining them reduces overall portfolio variance. This is the mathematical basis of diversification—the portfolio variance w'Σw includes covariance terms that can be negative or small, reducing total risk below any single asset's risk."
+/>
+
+### Quick Intro: CVXPY
+
+CVXPY is a Python library for convex optimization. The workflow is:
+
+1. **Define variables:** `w = cp.Variable(n)` creates an optimization variable
+2. **Define objective:** `cp.Minimize(...)` or `cp.Maximize(...)`
+3. **Define constraints:** A list like `[cp.sum(w) == 1, w >= 0]`
+4. **Solve:** Create a `cp.Problem(objective, constraints)` and call `.solve()`
+
+The solver finds the optimal values automatically. You access results via `w.value` and `problem.value`.
+
+### Exercise 1: Solve Minimum Variance Problem
+
+Use CVXPY to solve the minimum variance portfolio.
+
+<CodeExercise
+  id="code-1-1a"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def solve_min_variance(Sigma):
+    """
+    Solve the minimum variance portfolio problem.
+
+    minimize    wᵀΣw
+    subject to  1ᵀw = 1
+                w >= 0
+
+    Args:
+        Sigma: Covariance matrix (n,n)
+
+    Returns:
+        float: The minimum achievable portfolio variance
+    """
+    n = Sigma.shape[0]
+
+    # TODO: Define CVXPY variable for weights
+    # w = cp.Variable(n)
+
+    # TODO: Define the objective: minimize quadratic form
+    # Use cp.quad_form(w, Sigma) for wᵀΣw
+
+    # TODO: Define constraints
+    # Budget: cp.sum(w) == 1
+    # Long-only: w >= 0
+
+    # TODO: Create and solve the problem
+    # problem = cp.Problem(objective, constraints)
+    # problem.solve()
+
+    # TODO: Return the optimal variance (problem.value)
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def solve_min_variance(Sigma):
+    n = Sigma.shape[0]
+
+    w = cp.Variable(n)
+
+    objective = cp.Minimize(cp.quad_form(w, Sigma))
+
+    constraints = [
+        cp.sum(w) == 1,
+        w >= 0
+    ]
+
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+
+    return problem.value`}
+  hint="Use cp.Variable(n) for weights, cp.quad_form(w, Sigma) for the quadratic objective, and list constraints as cp.sum(w) == 1 and w >= 0."
+  tests={[
+    {
+      "input": ["np.eye(2) * 0.04"],
+      "expected": 0.02,
+      "hidden": false,
+      "description": "2 uncorrelated assets with 20% vol each",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.eye(4) * 0.01"],
+      "expected": 0.0025,
+      "hidden": false,
+      "description": "4 uncorrelated assets with 10% vol each",
+      "tolerance": 0.0001
+    }
+  ]}
+/>
+
+### Exercise 2: Compare to Equal Weight
+
+Compare the minimum variance portfolio to a naive equal-weight allocation.
+
+<CodeExercise
+  id="code-1-1b"
+  starterCode={`import numpy as np
+
+def compute_vol_reduction(w_opt, Sigma):
+    """
+    Compute volatility reduction vs equal-weight benchmark.
+
+    Args:
+        w_opt: Optimal weights from min variance
+        Sigma: Covariance matrix
+
+    Returns:
+        float: Percentage volatility reduction (positive means opt is better)
+               Formula: (ew_vol - opt_vol) / ew_vol * 100
+    """
+    n = len(w_opt)
+
+    # TODO: Create equal weight vector (1/n for each asset)
+
+    # TODO: Compute volatility for optimal portfolio
+    # vol = sqrt(w' @ Sigma @ w)
+
+    # TODO: Compute volatility for equal weight
+
+    # TODO: Compute and return volatility reduction percentage
+
+    pass`}
+  solution={`import numpy as np
+
+def compute_vol_reduction(w_opt, Sigma):
+    n = len(w_opt)
+    w_ew = np.ones(n) / n
+
+    opt_vol = np.sqrt(w_opt @ Sigma @ w_opt)
+    ew_vol = np.sqrt(w_ew @ Sigma @ w_ew)
+
+    vol_reduction = (ew_vol - opt_vol) / ew_vol * 100
+
+    return vol_reduction`}
+  hint="Equal weight is simply w = 1/n for each asset. Use the portfolio volatility formula sqrt(w'Σw) for each."
+  tests={[
+    {
+      "input": ["np.array([0.5, 0.5])", "np.eye(2) * 0.04"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "Equal weights = no reduction for uncorrelated assets",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([1.0, 0.0])", "np.array([[0.01, 0.0], [0.0, 0.04]])"],
+      "expected": 10.56,
+      "hidden": false,
+      "description": "Concentrating in low-vol asset reduces volatility vs equal-weight",
+      "tolerance": 1.0
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You've implemented the **minimum variance portfolio**—the simplest and most fundamental portfolio optimization. Here's what each piece does:
+
+**CVXPY problem structure**: You learned the pattern that every optimization follows: (1) define a variable `cp.Variable(n)`, (2) define an objective `cp.Minimize(...)` or `cp.Maximize(...)`, (3) specify constraints as a list, (4) create and solve `cp.Problem(objective, constraints)`. This pattern repeats throughout quantitative finance.
+
+**Quadratic form** (`cp.quad_form(w, Sigma)`): This computes $w^\top \Sigma w$, the portfolio variance. It's a quadratic function of $w$, which is why this is called "quadratic programming." The fact that $\Sigma$ is positive semi-definite guarantees the problem is convex—there's a unique global minimum.
+
+**Constraints** (`cp.sum(w) == 1`, `w >= 0`): The budget constraint ensures full investment; the long-only constraint prevents short selling. These linear constraints define a convex feasible region. Together with the quadratic objective, you get a convex QP with a guaranteed solution.
+
+**Volatility comparison** (`compute_vol_reduction()`): Comparing to equal-weight shows the value of optimization. The minimum variance portfolio exploits correlations to reduce risk below what any naive allocation achieves.
+
+**A concrete example**: With 4 assets of varying volatilities and correlations, minimum variance might allocate 50% to bonds (lowest volatility) and split the rest among assets with low correlations to each other. Equal weight (25% each) ignores this structure and pays a volatility penalty.
+
+**Why this matters**: This is the left-most point on the efficient frontier. It represents the absolute minimum risk achievable with long-only positions. Every other portfolio on the frontier achieves higher return but at the cost of higher risk. Understanding this baseline is essential for building the rest of the frontier.
+
+<Checkpoint
+  id="checkpoint-1"
+  title="Checkpoint: Minimum Variance"
+  requiredBlockIds={["quiz-1-1a", "quiz-1-1b", "quiz-1-1c", "quiz-1-1d", "quiz-1-1", "code-1-1a", "code-1-1b"]}
+  minRequired={5}
+  lockedMessage="Complete at least 5 of the 7 tasks above to continue."
+>
+
+**Key insight:** Minimum variance is a convex problem with a unique solution. It's the foundation for building the efficient frontier.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-1" lockedTitle="Section 2: Efficient Frontier via Target Returns">
+
+## Section 2: Efficient Frontier via Target Returns
+
+One portfolio is not enough. Different investors have different return requirements. The efficient frontier maps out all optimal risk-return tradeoffs.
+
+### Target Return Portfolios
+
+For each target return $\mu_{\text{target}}$, we solve:
+
+$$\min_w \quad w^\top \Sigma w$$
+
+subject to:
+- $w^\top \mu = \mu_{\text{target}}$ (target return)
+- $\mathbf{1}^\top w = 1$ (budget)
+- $w \geq 0$ (long-only)
+
+By sweeping $\mu_{\text{target}}$ from the minimum achievable return to the maximum, we trace out the efficient frontier.
+
+<Quiz
+  id="quiz-2-1a"
+  question="What is the correct formulation for the target return portfolio optimization problem?"
+  options={[
+    "minimize wᵀΣw subject to: μᵀw = μ_target, 1ᵀw = 1, w ≥ 0",
+    "maximize μᵀw subject to: wᵀΣw ≤ σ_target, 1ᵀw = 1, w ≥ 0",
+    "minimize wᵀΣw subject to: μᵀw ≥ μ_target, w ≥ 0",
+    "maximize μᵀw - λwᵀΣw subject to: 1ᵀw = 1, w ≥ 0"
+  ]}
+  correct={0}
+  explanation="The target return formulation minimizes variance (wᵀΣw) while requiring the portfolio return to exactly equal the target (μᵀw = μ_target). The budget constraint (1ᵀw = 1) and long-only constraint (w ≥ 0) complete the problem. Option B is a risk-budget formulation, C is missing the budget constraint, and D is the risk-aversion formulation."
+/>
+
+<Quiz
+  id="quiz-2-1b"
+  question="What happens if you set μ_target higher than the maximum individual asset return max(μ)?"
+  options={[
+    "The optimizer finds a leveraged solution with weights summing to more than 1",
+    "The problem becomes infeasible—no long-only portfolio can achieve this return",
+    "The optimizer returns the maximum-return portfolio as the closest feasible solution",
+    "The solver automatically relaxes the target constraint to find a solution"
+  ]}
+  correct={1}
+  explanation="With long-only constraints (w ≥ 0) and budget constraint (1ᵀw = 1), the maximum achievable return is max(μ)—putting 100% in the highest-return asset. Any target above this is mathematically impossible, so the solver returns 'infeasible' status. Leveraging would require relaxing the w ≥ 0 and 1ᵀw = 1 constraints."
+/>
+
+<Quiz
+  id="quiz-2-1"
+  question="As you increase the target return along the efficient frontier, what happens to portfolio risk?"
+  options={[
+    "Risk decreases because higher-return assets are more stable investments",
+    "Risk stays constant because the optimizer balances risk and return equally",
+    "Risk increases because achieving higher returns requires taking more risk",
+    "Risk becomes undefined because the optimization problem loses convexity"
+  ]}
+  correct={2}
+  explanation="The efficient frontier has a positive slope in risk-return space. Higher target returns force the optimizer to take on more risk—there is no free lunch. This is the fundamental risk-return tradeoff that portfolio theory quantifies."
+/>
+
+### Exercise 1: Solve for One Target Return
+
+Solve the minimum variance problem with an additional return constraint.
+
+<CodeExercise
+  id="code-2-1a"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def solve_target_return(mu, Sigma, target_return):
+    """
+    Solve minimum variance portfolio with target return constraint.
+
+    minimize    wᵀΣw
+    subject to  wᵀμ = target_return
+                1ᵀw = 1
+                w >= 0
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        target_return: Required portfolio return
+
+    Returns:
+        float: The minimum variance for the target return
+               Returns -1 if the problem is infeasible
+    """
+    n = len(mu)
+
+    # TODO: Define CVXPY variable
+
+    # TODO: Define objective (minimize variance)
+
+    # TODO: Define constraints including target return
+    # Add: w @ mu == target_return
+
+    # TODO: Solve and return variance (or -1 if infeasible)
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def solve_target_return(mu, Sigma, target_return):
+    n = len(mu)
+
+    w = cp.Variable(n)
+
+    objective = cp.Minimize(cp.quad_form(w, Sigma))
+
+    constraints = [
+        w @ mu == target_return,
+        cp.sum(w) == 1,
+        w >= 0
+    ]
+
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+
+    if problem.status in ['infeasible', 'unbounded']:
+        return -1
+
+    return problem.value`}
+  hint="Add w @ mu == target_return to your constraints. Check problem.status for infeasibility and return -1."
+  tests={[
+    {
+      "input": ["np.array([0.10, 0.05])", "np.eye(2) * 0.04", 0.075],
+      "expected": 0.02,
+      "hidden": false,
+      "description": "Target 7.5% return with equal assets gives min var",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([0.10, 0.05])", "np.eye(2) * 0.04", 0.20],
+      "expected": -1,
+      "hidden": false,
+      "description": "Target 20% is infeasible (max is 10%)",
+      "tolerance": 0.001
+    }
+  ]}
+/>
+
+### Exercise 2: Build the Efficient Frontier
+
+Sweep across target returns to construct the full frontier.
+
+<CodeExercise
+  id="code-2-1b"
+  starterCode={`import numpy as np
+
+def build_efficient_frontier(mu, Sigma, n_points=50):
+    """
+    Construct the efficient frontier by solving for multiple target returns.
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        n_points: Number of points on the frontier
+
+    Returns:
+        Tuple: (returns, volatilities, all_weights)
+        - returns: Array of achieved returns
+        - volatilities: Array of portfolio volatilities
+        - all_weights: List of weight vectors for each point
+    """
+    # TODO: Determine the range of achievable returns
+    # Min return = min(mu) for long-only
+    # Max return = max(mu) for long-only
+
+    # TODO: Create grid of target returns
+    # targets = np.linspace(min_ret, max_ret, n_points)
+
+    # TODO: For each target, solve the optimization
+    # Skip infeasible points
+
+    # TODO: Collect returns, volatilities, and weights
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def build_efficient_frontier(mu, Sigma, n_points=50):
+    min_ret = np.min(mu)
+    max_ret = np.max(mu)
+
+    targets = np.linspace(min_ret, max_ret, n_points)
+
+    returns = []
+    volatilities = []
+    all_weights = []
+
+    for target in targets:
+        n = len(mu)
+        w = cp.Variable(n)
+        objective = cp.Minimize(cp.quad_form(w, Sigma))
+        constraints = [
+            w @ mu == target,
+            cp.sum(w) == 1,
+            w >= 0
+        ]
+        problem = cp.Problem(objective, constraints)
+        problem.solve()
+
+        if problem.status == 'optimal':
+            returns.append(target)
+            volatilities.append(np.sqrt(problem.value))
+            all_weights.append(w.value)
+
+    return np.array(returns), np.array(volatilities), all_weights`}
+  hint="Use np.linspace to create a grid from min(mu) to max(mu). Solve for each target and collect results for feasible solutions."
+  tests={[
+    {
+      "input": ["np.array([0.05, 0.10, 0.15])", "np.eye(3) * 0.04", 10],
+      "expected": 10,
+      "hidden": false,
+      "description": "Frontier has correct number of points",
+      "tolerance": 0,
+      "outputExpression": "len(result[0])"
+    },
+    {
+      "input": ["np.array([0.05, 0.10, 0.15])", "np.eye(3) * 0.04", 10],
+      "expected": 0.15,
+      "hidden": false,
+      "description": "Frontier ends at maximum return",
+      "tolerance": 0.01,
+      "outputExpression": "result[0][-1]"
+    }
+  ]}
+/>
+
+### Exercise 3: Visualize Your Frontier
+
+Now let's see the frontier you just built. Run the code below to visualize the efficient frontier using your `build_efficient_frontier` function from Exercise 2.
+
+<CodeExercise
+  id="code-2-1c"
+  starterCode={`import numpy as np
+import cvxpy as cp
+import matplotlib.pyplot as plt
+
+# ============================================================
+# STEP 1: Define realistic asset data (5 assets)
+# ============================================================
+
+asset_names = ['Bonds', 'Large Cap', 'Small Cap', 'Intl Equity', 'Emerging Mkts']
+
+# Expected annual returns
+mu = np.array([0.04, 0.08, 0.10, 0.09, 0.12])
+
+# Covariance matrix (realistic correlations)
+# Bonds have low vol and low correlation with stocks
+# Emerging markets have high vol and moderate correlation
+Sigma = np.array([
+    [0.0025, 0.0010, 0.0012, 0.0008, 0.0015],  # Bonds: 5% vol
+    [0.0010, 0.0225, 0.0180, 0.0150, 0.0200],  # Large Cap: 15% vol
+    [0.0012, 0.0180, 0.0400, 0.0200, 0.0280],  # Small Cap: 20% vol
+    [0.0008, 0.0150, 0.0200, 0.0289, 0.0240],  # Intl: 17% vol
+    [0.0015, 0.0200, 0.0280, 0.0240, 0.0625],  # EM: 25% vol
+])
+
+# ============================================================
+# STEP 2: Build the efficient frontier (from Exercise 2)
+# ============================================================
+
+def build_efficient_frontier(mu, Sigma, n_points=50):
+    min_ret = np.min(mu)
+    max_ret = np.max(mu)
+    targets = np.linspace(min_ret, max_ret, n_points)
+
+    returns = []
+    volatilities = []
+
+    for target in targets:
+        n = len(mu)
+        w = cp.Variable(n)
+        objective = cp.Minimize(cp.quad_form(w, Sigma))
+        constraints = [mu @ w == target, cp.sum(w) == 1, w >= 0]
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver=cp.CLARABEL)
+
+        if prob.status == 'optimal':
+            returns.append(target)
+            volatilities.append(np.sqrt(prob.value))
+
+    return np.array(returns), np.array(volatilities)
+
+# Build the frontier
+frontier_returns, frontier_vols = build_efficient_frontier(mu, Sigma, n_points=50)
+
+# ============================================================
+# STEP 3: Create professional visualization
+# ============================================================
+
+fig, ax = plt.subplots(figsize=(12, 7))
+
+# Plot efficient frontier as a gradient line
+for i in range(len(frontier_returns) - 1):
+    color_intensity = i / len(frontier_returns)
+    ax.plot(frontier_vols[i:i+2] * 100, frontier_returns[i:i+2] * 100,
+            color=plt.cm.viridis(color_intensity), linewidth=3)
+
+# Mark minimum variance portfolio
+min_var_idx = np.argmin(frontier_vols)
+ax.scatter(frontier_vols[min_var_idx] * 100, frontier_returns[min_var_idx] * 100,
+           color='#00ff88', s=200, zorder=5, edgecolors='white', linewidth=2,
+           label=f'Min Variance ({frontier_vols[min_var_idx]*100:.1f}% vol, {frontier_returns[min_var_idx]*100:.1f}% ret)')
+
+# Mark maximum return portfolio
+max_ret_idx = np.argmax(frontier_returns)
+ax.scatter(frontier_vols[max_ret_idx] * 100, frontier_returns[max_ret_idx] * 100,
+           color='#ff6b6b', s=200, zorder=5, edgecolors='white', linewidth=2,
+           label=f'Max Return ({frontier_vols[max_ret_idx]*100:.1f}% vol, {frontier_returns[max_ret_idx]*100:.1f}% ret)')
+
+# Plot individual assets
+asset_vols = np.sqrt(np.diag(Sigma)) * 100
+asset_rets = mu * 100
+ax.scatter(asset_vols, asset_rets, color='#888888', s=100, zorder=4,
+           edgecolors='white', linewidth=1.5, alpha=0.8)
+
+# Label each asset
+for i, name in enumerate(asset_names):
+    ax.annotate(name, (asset_vols[i], asset_rets[i]),
+                xytext=(8, 0), textcoords='offset points',
+                fontsize=10, color='#cccccc', fontweight='bold')
+
+# Styling
+ax.set_xlabel('Volatility (%)', fontsize=12, fontweight='bold', color='#333')
+ax.set_ylabel('Expected Return (%)', fontsize=12, fontweight='bold', color='#333')
+ax.set_title('Efficient Frontier: Risk-Return Tradeoff', fontsize=14, fontweight='bold', pad=15)
+ax.legend(loc='lower right', fontsize=10, framealpha=0.9)
+ax.grid(True, alpha=0.3, linestyle='--')
+ax.set_facecolor('#fafafa')
+fig.patch.set_facecolor('white')
+
+# Add annotation explaining the frontier
+ax.annotate('Portfolios on this curve\\nare Pareto-optimal',
+            xy=(frontier_vols[len(frontier_vols)//2] * 100, frontier_returns[len(frontier_returns)//2] * 100),
+            xytext=(frontier_vols[0] * 100 + 5, frontier_returns[-1] * 100 - 1),
+            fontsize=9, color='#666',
+            arrowprops=dict(arrowstyle='->', color='#999', lw=1.5))
+
+plt.tight_layout()
+plt.show()
+
+# Print summary
+print("=" * 50)
+print("EFFICIENT FRONTIER SUMMARY")
+print("=" * 50)
+print(f"Assets: {', '.join(asset_names)}")
+print(f"Frontier points: {len(frontier_returns)}")
+print(f"Min variance portfolio: {frontier_vols[min_var_idx]*100:.2f}% vol, {frontier_returns[min_var_idx]*100:.2f}% return")
+print(f"Max return portfolio: {frontier_vols[max_ret_idx]*100:.2f}% vol, {frontier_returns[max_ret_idx]*100:.2f}% return")
+print("=" * 50)`}
+  solution={`import numpy as np
+import cvxpy as cp
+import matplotlib.pyplot as plt
+
+# ============================================================
+# STEP 1: Define realistic asset data (5 assets)
+# ============================================================
+
+asset_names = ['Bonds', 'Large Cap', 'Small Cap', 'Intl Equity', 'Emerging Mkts']
+
+# Expected annual returns
+mu = np.array([0.04, 0.08, 0.10, 0.09, 0.12])
+
+# Covariance matrix (realistic correlations)
+# Bonds have low vol and low correlation with stocks
+# Emerging markets have high vol and moderate correlation
+Sigma = np.array([
+    [0.0025, 0.0010, 0.0012, 0.0008, 0.0015],  # Bonds: 5% vol
+    [0.0010, 0.0225, 0.0180, 0.0150, 0.0200],  # Large Cap: 15% vol
+    [0.0012, 0.0180, 0.0400, 0.0200, 0.0280],  # Small Cap: 20% vol
+    [0.0008, 0.0150, 0.0200, 0.0289, 0.0240],  # Intl: 17% vol
+    [0.0015, 0.0200, 0.0280, 0.0240, 0.0625],  # EM: 25% vol
+])
+
+# ============================================================
+# STEP 2: Build the efficient frontier (from Exercise 2)
+# ============================================================
+
+def build_efficient_frontier(mu, Sigma, n_points=50):
+    min_ret = np.min(mu)
+    max_ret = np.max(mu)
+    targets = np.linspace(min_ret, max_ret, n_points)
+
+    returns = []
+    volatilities = []
+
+    for target in targets:
+        n = len(mu)
+        w = cp.Variable(n)
+        objective = cp.Minimize(cp.quad_form(w, Sigma))
+        constraints = [mu @ w == target, cp.sum(w) == 1, w >= 0]
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver=cp.CLARABEL)
+
+        if prob.status == 'optimal':
+            returns.append(target)
+            volatilities.append(np.sqrt(prob.value))
+
+    return np.array(returns), np.array(volatilities)
+
+# Build the frontier
+frontier_returns, frontier_vols = build_efficient_frontier(mu, Sigma, n_points=50)
+
+# ============================================================
+# STEP 3: Create professional visualization
+# ============================================================
+
+fig, ax = plt.subplots(figsize=(12, 7))
+
+# Plot efficient frontier as a gradient line
+for i in range(len(frontier_returns) - 1):
+    color_intensity = i / len(frontier_returns)
+    ax.plot(frontier_vols[i:i+2] * 100, frontier_returns[i:i+2] * 100,
+            color=plt.cm.viridis(color_intensity), linewidth=3)
+
+# Mark minimum variance portfolio
+min_var_idx = np.argmin(frontier_vols)
+ax.scatter(frontier_vols[min_var_idx] * 100, frontier_returns[min_var_idx] * 100,
+           color='#00ff88', s=200, zorder=5, edgecolors='white', linewidth=2,
+           label=f'Min Variance ({frontier_vols[min_var_idx]*100:.1f}% vol, {frontier_returns[min_var_idx]*100:.1f}% ret)')
+
+# Mark maximum return portfolio
+max_ret_idx = np.argmax(frontier_returns)
+ax.scatter(frontier_vols[max_ret_idx] * 100, frontier_returns[max_ret_idx] * 100,
+           color='#ff6b6b', s=200, zorder=5, edgecolors='white', linewidth=2,
+           label=f'Max Return ({frontier_vols[max_ret_idx]*100:.1f}% vol, {frontier_returns[max_ret_idx]*100:.1f}% ret)')
+
+# Plot individual assets
+asset_vols = np.sqrt(np.diag(Sigma)) * 100
+asset_rets = mu * 100
+ax.scatter(asset_vols, asset_rets, color='#888888', s=100, zorder=4,
+           edgecolors='white', linewidth=1.5, alpha=0.8)
+
+# Label each asset
+for i, name in enumerate(asset_names):
+    ax.annotate(name, (asset_vols[i], asset_rets[i]),
+                xytext=(8, 0), textcoords='offset points',
+                fontsize=10, color='#cccccc', fontweight='bold')
+
+# Styling
+ax.set_xlabel('Volatility (%)', fontsize=12, fontweight='bold', color='#333')
+ax.set_ylabel('Expected Return (%)', fontsize=12, fontweight='bold', color='#333')
+ax.set_title('Efficient Frontier: Risk-Return Tradeoff', fontsize=14, fontweight='bold', pad=15)
+ax.legend(loc='lower right', fontsize=10, framealpha=0.9)
+ax.grid(True, alpha=0.3, linestyle='--')
+ax.set_facecolor('#fafafa')
+fig.patch.set_facecolor('white')
+
+# Add annotation explaining the frontier
+ax.annotate('Portfolios on this curve\\nare Pareto-optimal',
+            xy=(frontier_vols[len(frontier_vols)//2] * 100, frontier_returns[len(frontier_returns)//2] * 100),
+            xytext=(frontier_vols[0] * 100 + 5, frontier_returns[-1] * 100 - 1),
+            fontsize=9, color='#666',
+            arrowprops=dict(arrowstyle='->', color='#999', lw=1.5))
+
+plt.tight_layout()
+plt.show()
+
+# Print summary
+print("=" * 50)
+print("EFFICIENT FRONTIER SUMMARY")
+print("=" * 50)
+print(f"Assets: {', '.join(asset_names)}")
+print(f"Frontier points: {len(frontier_returns)}")
+print(f"Min variance portfolio: {frontier_vols[min_var_idx]*100:.2f}% vol, {frontier_returns[min_var_idx]*100:.2f}% return")
+print(f"Max return portfolio: {frontier_vols[max_ret_idx]*100:.2f}% vol, {frontier_returns[max_ret_idx]*100:.2f}% return")
+print("=" * 50)`}
+  hint="Just click Run to execute and see the visualization."
+  tests={[]}
+/>
+
+### What You Just Built
+
+You've constructed the **efficient frontier via target returns**—the complete map of optimal risk-return tradeoffs. Here's what each piece does:
+
+**Target return constraint** (`w @ mu == target_return`): This pins the portfolio to achieve exactly the specified return. Combined with minimizing variance, you find the lowest-risk way to achieve that return. Different targets give different points on the frontier.
+
+**Feasibility checking** (`problem.status`): Not every target is achievable. With long-only constraints, returns below the worst asset or above the best asset are infeasible. Your code handles this by returning -1 for impossible targets—a critical production consideration.
+
+**Frontier sweep** (`np.linspace(min(mu), max(mu), n_points)`): By solving the optimization at many target returns, you trace out the full frontier. The range is bounded by the minimum and maximum individual asset returns. Each solve adds one point to your frontier.
+
+**Visualization**: The plot shows the fundamental insight: the frontier curves upward and to the right. Starting from minimum variance (leftmost point), increasing return requires accepting more risk. The curve's shape depends on asset correlations—low correlations create a more favorable (less steep) frontier.
+
+**A concrete example**: With 5 assets ranging from 4% (bonds) to 12% (emerging markets), your frontier spans this return range. At 4% target, you might hold mostly bonds. At 12% target, you're 100% in emerging markets. The intermediate points show optimal blends—for example, 8% return might be achievable at 12% volatility through diversification across multiple assets.
+
+**Why this matters**: The efficient frontier is the central object in mean-variance portfolio theory. Every portfolio *on* the frontier is optimal—there's no way to improve return without increasing risk. Every portfolio *below* the frontier is suboptimal—you're taking risk for which you're not being compensated. This framework underpins asset allocation decisions at pension funds, endowments, and wealth managers worldwide.
+
+<Checkpoint
+  id="checkpoint-2"
+  title="Checkpoint: Efficient Frontier"
+  requiredBlockIds={["quiz-2-1a", "quiz-2-1b", "quiz-2-1", "code-2-1a", "code-2-1b", "code-2-1c"]}
+  minRequired={5}
+  lockedMessage="Complete at least 5 of the 6 tasks above to continue."
+>
+
+**Key insight:** The efficient frontier is constructed by solving many optimization problems, each with a different target return constraint.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-2" lockedTitle="Section 3: Efficient Frontier via Risk Aversion">
+
+## Section 3: Efficient Frontier via Risk Aversion
+
+There's another way to build the frontier: instead of fixing a target return, we maximize a risk-adjusted objective.
+
+### Risk Aversion Formulation
+
+$$\max_w \quad \mu^\top w - \lambda \cdot w^\top \Sigma w$$
+
+subject to:
+- $\mathbf{1}^\top w = 1$
+- $w \geq 0$
+
+Here $\lambda \geq 0$ is the **risk aversion parameter**:
+- $\lambda = 0$: Maximize return (ignore risk entirely)
+- $\lambda \to \infty$: Minimize variance (ignore return entirely)
+- Intermediate $\lambda$: Balance return and risk
+
+This formulation has a practical advantage: instead of specifying a target return (which requires knowing what's achievable), you specify your risk tolerance.
+
+<Quiz
+  id="quiz-3-1a"
+  question="For the risk-aversion objective f(w) = μᵀw - λwᵀΣw, what is the gradient ∇f with respect to w?"
+  options={[
+    "∇f = μ - 2λΣw",
+    "∇f = μ - λΣw",
+    "∇f = μ - 2λΣ",
+    "∇f = -2λΣw"
+  ]}
+  correct={0}
+  explanation="The gradient of μᵀw is μ. The gradient of wᵀΣw is 2Σw (since Σ is symmetric). Therefore ∇f = μ - λ·2Σw = μ - 2λΣw. Option B is missing the factor of 2, option C is missing w, and option D is missing the return term μ."
+/>
+
+<Quiz
+  id="quiz-3-1b"
+  question="Setting the gradient equal to zero and solving for w (ignoring constraints), what is the unconstrained optimal portfolio?"
+  options={[
+    "w* = (1/2λ)Σ⁻¹μ",
+    "w* = λΣ⁻¹μ",
+    "w* = Σ⁻¹μ",
+    "w* = (1/λ)Σ⁻¹μ"
+  ]}
+  correct={0}
+  explanation="Setting μ - 2λΣw = 0 gives 2λΣw = μ. Solving for w: w = (2λΣ)⁻¹μ = (1/2λ)Σ⁻¹μ. This is the unconstrained solution - with portfolio constraints (budget, long-only), the optimizer adjusts this to satisfy those requirements. Note how higher λ (more risk-averse) reduces the magnitude of the optimal weights."
+/>
+
+<Quiz
+  id="quiz-3-1"
+  question="As you increase λ (risk aversion), what happens to the optimal portfolio?"
+  options={[
+    "Portfolio becomes more concentrated in high-return assets to compensate for the penalty",
+    "Portfolio shifts toward lower-volatility assets and becomes more diversified",
+    "Portfolio stays the same because λ only scales the objective value",
+    "Portfolio becomes infeasible as the risk penalty dominates the return term"
+  ]}
+  correct={1}
+  explanation="Higher λ means higher penalty on variance. The optimizer responds by shifting weight toward lower-volatility assets and increasing diversification to reduce the w'Σw term. The portfolio moves leftward along the efficient frontier toward minimum variance."
+/>
+
+### Exercise 1: Solve Risk-Aversion Problem
+
+Implement the risk-aversion formulation for a single λ.
+
+<CodeExercise
+  id="code-3-1a"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def solve_risk_aversion(mu, Sigma, risk_aversion):
+    """
+    Solve the risk-aversion portfolio problem.
+
+    maximize    μᵀw - λ * wᵀΣw
+    subject to  1ᵀw = 1
+                w >= 0
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        risk_aversion: Lambda parameter (>= 0)
+
+    Returns:
+        float: The optimal objective value (risk-adjusted return)
+    """
+    n = len(mu)
+
+    # TODO: Define CVXPY variable
+
+    # TODO: Define objective
+    # Maximize: mu @ w - risk_aversion * cp.quad_form(w, Sigma)
+    # Note: CVXPY uses cp.Maximize for maximization
+
+    # TODO: Define constraints
+
+    # TODO: Solve and return optimal objective value
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def solve_risk_aversion(mu, Sigma, risk_aversion):
+    n = len(mu)
+
+    w = cp.Variable(n)
+
+    objective = cp.Maximize(mu @ w - risk_aversion * cp.quad_form(w, Sigma))
+
+    constraints = [
+        cp.sum(w) == 1,
+        w >= 0
+    ]
+
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+
+    return problem.value`}
+  hint="Use cp.Maximize instead of cp.Minimize. The objective is mu @ w - lambda * cp.quad_form(w, Sigma)."
+  tests={[
+    {
+      "input": ["np.array([0.10, 0.05])", "np.eye(2) * 0.04", 0],
+      "expected": 0.10,
+      "hidden": false,
+      "description": "Lambda=0 gives max return (10%)",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([0.10, 0.10])", "np.eye(2) * 0.04", 1.0],
+      "expected": 0.08,
+      "hidden": false,
+      "description": "Equal returns with risk penalty",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 2: Sweep Lambda Values
+
+Build the frontier by sweeping across λ values.
+
+<CodeExercise
+  id="code-3-1b"
+  starterCode={`import numpy as np
+
+def build_frontier_risk_aversion(mu, Sigma, n_points=50):
+    """
+    Build efficient frontier using risk aversion sweep.
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        n_points: Number of lambda values to test
+
+    Returns:
+        Tuple: (returns, volatilities, lambdas)
+
+    Use logarithmically spaced lambda values from 0.01 to 100.
+    """
+    # TODO: Create logarithmically spaced lambda values
+    # lambdas = np.logspace(-2, 2, n_points)
+
+    # TODO: For each lambda, solve the risk-aversion problem
+
+    # TODO: Collect returns and volatilities
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def build_frontier_risk_aversion(mu, Sigma, n_points=50):
+    lambdas = np.logspace(-2, 2, n_points)
+
+    returns = []
+    volatilities = []
+
+    n = len(mu)
+    w = cp.Variable(n)
+
+    for lam in lambdas:
+        objective = cp.Maximize(mu @ w - lam * cp.quad_form(w, Sigma))
+        constraints = [cp.sum(w) == 1, w >= 0]
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver=cp.CLARABEL)
+
+        if prob.status == 'optimal':
+            returns.append(float(mu @ w.value))
+            volatilities.append(float(np.sqrt(w.value @ Sigma @ w.value)))
+
+    return np.array(returns), np.array(volatilities), lambdas`}
+  hint="Use np.logspace(-2, 2, n_points) to create lambda values from 0.01 to 100. Logarithmic spacing gives better coverage."
+  tests={[
+    {
+      "input": ["np.array([0.05, 0.10, 0.15])", "np.eye(3) * 0.04", 10],
+      "expected": 10,
+      "hidden": false,
+      "description": "Returns correct number of points",
+      "outputExpression": "len(result[0])"
+    },
+    {
+      "input": ["np.array([0.05, 0.10, 0.15])", "np.eye(3) * 0.04", 10],
+      "expected": 0.15,
+      "hidden": false,
+      "description": "Low lambda (risk-seeking) → max return asset",
+      "outputExpression": "result[0][0]",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.05, 0.10, 0.15])", "np.eye(3) * 0.04", 10],
+      "expected": 0.10,
+      "hidden": false,
+      "description": "High lambda (risk-averse) → diversified portfolio",
+      "outputExpression": "result[0][-1]",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You've implemented the **risk-aversion formulation**—an alternative way to construct the efficient frontier that's often more practical. Here's what each piece does:
+
+**Risk-aversion objective** (`mu @ w - lambda * quad_form(w, Sigma)`): This directly encodes the risk-return tradeoff. The first term rewards return; the second term penalizes variance. Lambda controls the balance—you're literally specifying how many units of return you'd sacrifice to reduce variance by one unit.
+
+**Gradient analysis** ($\nabla f = \mu - 2\lambda\Sigma w$): Understanding the gradient reveals the unconstrained optimum: $w^* = \frac{1}{2\lambda}\Sigma^{-1}\mu$. Higher lambda (more risk-averse) shrinks the optimal weights. Lower lambda pushes toward concentrated positions in high-return assets.
+
+**Logarithmic sweep** (`np.logspace(-2, 2, n_points)`): Lambda spans several orders of magnitude (0.01 to 100), so logarithmic spacing gives even coverage. Linear spacing would cluster points at one end of the frontier while missing the other.
+
+**Maximization** (`cp.Maximize`): Unlike the target-return approach which minimizes variance, here we maximize the risk-adjusted objective. The solver finds the best tradeoff point for each lambda value.
+
+**A concrete example**: At $\lambda = 0$, you ignore risk entirely and put 100% in the highest-return asset. At $\lambda = 100$, the variance penalty dominates, and you approach the minimum variance portfolio. At $\lambda = 1$, you might get a balanced 60/40 style allocation. The lambda parameter gives you a dial to move along the frontier.
+
+**Why this matters**: The risk-aversion formulation is preferred by practitioners for two reasons. First, it doesn't require knowing what returns are feasible—you just specify your risk tolerance. Second, it produces a single portfolio for each lambda, not a frontier that requires a second decision. This is how most robo-advisors work: they assess your risk tolerance and map it to a lambda value.
+
+<Checkpoint
+  id="checkpoint-3"
+  title="Checkpoint: Risk Aversion"
+  requiredBlockIds={["quiz-3-1a", "quiz-3-1b", "quiz-3-1", "code-3-1a", "code-3-1b"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+>
+
+**Key insight:** Risk aversion λ parameterizes the frontier continuously. Low λ gives aggressive portfolios; high λ gives conservative ones.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-3" lockedTitle="Section 4: Real-World Portfolio Constraints">
+
+## Section 4: Real-World Portfolio Constraints
+
+In practice, portfolios face constraints beyond budget and long-only. These constraints often shape the portfolio more than the objective function.
+
+### Common Real-World Constraints
+
+**Position limits:** No single asset can exceed a maximum weight.
+$$w_i \leq w_{\max} \quad \forall i$$
+
+**Sector exposure:** Total weight in a sector cannot exceed a limit.
+$$\sum_{i \in \text{sector}} w_i \leq s_{\max}$$
+
+**Turnover constraint:** Changes from current portfolio are limited.
+$$\sum_i |w_i - w_i^{\text{current}}| \leq \tau_{\max}$$
+
+These constraints are all linear (or can be reformulated as linear), so the problem remains convex.
+
+<Quiz
+  id="quiz-4-1a"
+  question="Which constraint correctly enforces a 25% maximum weight per asset?"
+  options={[
+    "Σᵢ wᵢ ≤ 0.25",
+    "w ≤ 0.25",
+    "wᵢ ≤ 0.25 for all i",
+    "max(wᵢ) ≤ 0.25"
+  ]}
+  correct={2}
+  explanation="Position limits apply to each asset individually: wᵢ ≤ 0.25 for all i. Option A is wrong (that's a budget constraint). Option B is ambiguous vector notation. Option D is mathematically equivalent but not standard constraint form - we write individual bounds, not max expressions."
+/>
+
+<Quiz
+  id="quiz-4-1b"
+  question="For assets in sector S (e.g., tech stocks at indices 0, 1, 2), which constraint limits sector exposure to 40%?"
+  options={[
+    "wᵢ ≤ 0.40 for all i ∈ S",
+    "Σᵢ wᵢ ≤ 0.40",
+    "max(wᵢ : i ∈ S) ≤ 0.40",
+    "Σᵢ∈S wᵢ ≤ 0.40"
+  ]}
+  correct={3}
+  explanation="Sector exposure is the sum of weights in that sector: Σᵢ∈S wᵢ ≤ 0.40. Option A limits individual positions (not total exposure). Option B sums all assets (not just the sector). Option C limits the largest position in the sector (not total exposure)."
+/>
+
+<Quiz
+  id="quiz-4-1c"
+  question="Which constraint correctly limits portfolio turnover to 50%?"
+  options={[
+    "Σᵢ (wᵢ - wᵢᶜᵘʳ) ≤ 0.50",
+    "Σᵢ |wᵢ - wᵢᶜᵘʳ| ≤ 0.50",
+    "|Σᵢ wᵢ - Σᵢ wᵢᶜᵘʳ| ≤ 0.50",
+    "maxᵢ |wᵢ - wᵢᶜᵘʳ| ≤ 0.50"
+  ]}
+  correct={1}
+  explanation="Turnover is the sum of absolute weight changes: Σᵢ |wᵢ - wᵢᶜᵘʳ| ≤ 0.50. Option A without absolute values can net to zero (sells cancel buys). Option C is always zero since both portfolios sum to 1. Option D limits only the largest single trade, not total turnover."
+/>
+
+<Quiz
+  id="quiz-4-1"
+  question="Which constraint typically causes the largest increase in portfolio risk compared to the unconstrained efficient portfolio?"
+  options={[
+    "Budget constraint because it prevents leveraged positions that could reduce risk",
+    "Long-only constraint because it prevents hedging through short positions",
+    "Position limits because they force unnecessary diversification across assets",
+    "Sector limits because they may require holding suboptimal asset combinations"
+  ]}
+  correct={1}
+  explanation="The long-only constraint is often the most binding. Short positions allow hedging—reducing exposure to common risk factors. Without shorts, the optimizer cannot fully exploit negative correlations, leading to higher minimum achievable variance."
+/>
+
+### Exercise 1: Add Position Limits
+
+Implement per-asset position limits.
+
+<CodeExercise
+  id="code-4-1a"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def solve_with_position_limits(mu, Sigma, max_weight=0.25, risk_aversion=1.0):
+    """
+    Solve portfolio optimization with per-asset caps.
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        max_weight: Maximum weight per asset
+        risk_aversion: Lambda for risk-aversion objective
+
+    Returns:
+        float: The maximum weight in the optimal portfolio
+               (should be <= max_weight if constraint is working)
+    """
+    n = len(mu)
+    w = cp.Variable(n)
+
+    # TODO: Define objective using cp.Maximize
+
+    # TODO: Add constraints: budget, long-only, and position limit (w <= max_weight)
+
+    # TODO: Solve and return the max weight in the solution
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def solve_with_position_limits(mu, Sigma, max_weight=0.25, risk_aversion=1.0):
+    n = len(mu)
+    w = cp.Variable(n)
+
+    objective = cp.Maximize(mu @ w - risk_aversion * cp.quad_form(w, Sigma))
+    constraints = [cp.sum(w) == 1, w >= 0, w <= max_weight]
+
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=cp.CLARABEL)
+
+    return float(np.max(w.value))`}
+  hint="Use w <= max_weight as an additional constraint. CVXPY handles bounds as constraints directly."
+  tests={[
+    {
+      "input": ["np.array([0.20, 0.05, 0.05, 0.05])", "np.eye(4) * 0.04", 0.25, 1.0],
+      "expected": 0.25,
+      "hidden": false,
+      "description": "Max weight respects 25% cap",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.10, 0.10, 0.10, 0.10])", "np.eye(4) * 0.04", 0.30, 1.0],
+      "expected": 0.25,
+      "hidden": false,
+      "description": "Equal returns with 30% cap gives equal weights (25%)",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 2: Add Sector Constraints
+
+Implement sector exposure limits.
+
+<CodeExercise
+  id="code-4-1b"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def solve_with_sector_limits(mu, Sigma, sector_map, sector_limits, risk_aversion=1.0):
+    """
+    Solve portfolio optimization with sector exposure limits.
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        sector_map: Dict mapping sector name to list of asset indices
+                   e.g., {'tech': [0, 1], 'finance': [2, 3]}
+        sector_limits: Dict mapping sector name to max exposure
+                      e.g., {'tech': 0.4, 'finance': 0.3}
+        risk_aversion: Lambda parameter
+
+    Returns:
+        Tuple: (weights, return, volatility)
+    """
+    n = len(mu)
+    w = cp.Variable(n)
+
+    # TODO: Define objective
+
+    # TODO: Add budget and long-only constraints
+
+    # TODO: Add sector constraints: cp.sum(w[indices]) <= limit
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def solve_with_sector_limits(mu, Sigma, sector_map, sector_limits, risk_aversion=1.0):
+    n = len(mu)
+    w = cp.Variable(n)
+
+    objective = cp.Maximize(mu @ w - risk_aversion * cp.quad_form(w, Sigma))
+
+    constraints = [cp.sum(w) == 1, w >= 0]
+
+    for sector, indices in sector_map.items():
+        if sector in sector_limits:
+            limit = sector_limits[sector]
+            constraints.append(cp.sum(w[indices]) <= limit)
+
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=cp.CLARABEL)
+
+    port_return = float(mu @ w.value)
+    port_vol = float(np.sqrt(w.value @ Sigma @ w.value))
+
+    return w.value, port_return, port_vol`}
+  hint="Use cp.sum(w[indices]) <= limit for sector constraints. CVXPY handles indexing naturally."
+  tests={[
+    {
+      "input": ["np.array([0.20, 0.15, 0.05, 0.05])", "np.eye(4) * 0.04", "dict(tech=[0, 1], finance=[2, 3])", "dict(tech=0.30)", 1.0],
+      "expected": 0.30,
+      "hidden": false,
+      "description": "Tech sector capped at 30%",
+      "outputExpression": "round(sum(result[0][:2]), 2)",
+      "tolerance": 0.02
+    },
+    {
+      "input": ["np.array([0.10, 0.10, 0.10, 0.10])", "np.eye(4) * 0.04", "dict(tech=[0, 1], finance=[2, 3])", "dict(tech=0.50, finance=0.50)", 1.0],
+      "expected": 0.25,
+      "hidden": false,
+      "description": "Equal returns → equal weights (25% each)",
+      "outputExpression": "round(result[0][0], 2)",
+      "tolerance": 0.02
+    }
+  ]}
+/>
+
+### Exercise 3: Add Turnover Constraint
+
+Implement turnover limits relative to a current portfolio.
+
+<CodeExercise
+  id="code-4-1c"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def solve_with_turnover(mu, Sigma, w_current, max_turnover=0.5, risk_aversion=1.0):
+    """
+    Solve portfolio optimization with turnover constraint.
+
+    Turnover = sum of absolute weight changes = sum_i |w_i - w_current_i|
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        w_current: Current portfolio weights
+        max_turnover: Maximum allowed turnover (0.5 = 50%)
+        risk_aversion: Lambda parameter
+
+    Returns:
+        Tuple: (weights, return, volatility, actual_turnover)
+    """
+    n = len(mu)
+    w = cp.Variable(n)
+
+    # TODO: Define objective
+
+    # TODO: Add turnover constraint using cp.norm(w - w_current, 1) <= max_turnover
+
+    # TODO: Solve and compute actual turnover
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def solve_with_turnover(mu, Sigma, w_current, max_turnover=0.5, risk_aversion=1.0):
+    n = len(mu)
+    w = cp.Variable(n)
+
+    objective = cp.Maximize(mu @ w - risk_aversion * cp.quad_form(w, Sigma))
+
+    constraints = [
+        cp.sum(w) == 1,
+        w >= 0,
+        cp.norm(w - w_current, 1) <= max_turnover
+    ]
+
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=cp.CLARABEL)
+
+    port_return = float(mu @ w.value)
+    port_vol = float(np.sqrt(w.value @ Sigma @ w.value))
+    actual_turnover = float(np.sum(np.abs(w.value - w_current)))
+
+    return w.value, port_return, port_vol, actual_turnover`}
+  hint="Use cp.norm(w - w_current, 1) for the L1 norm (sum of absolute values). This is convex and handles turnover naturally."
+  tests={[
+    {
+      "input": ["np.array([0.20, 0.05, 0.05, 0.05])", "np.eye(4) * 0.04", "np.array([0.25, 0.25, 0.25, 0.25])", 0.50, 1.0],
+      "expected": 0.50,
+      "hidden": false,
+      "description": "Turnover capped at 50%",
+      "outputExpression": "round(result[3], 2)",
+      "tolerance": 0.05
+    },
+    {
+      "input": ["np.array([0.10, 0.10, 0.10, 0.10])", "np.eye(4) * 0.04", "np.array([0.25, 0.25, 0.25, 0.25])", 0.50, 1.0],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "Equal returns from equal weights → zero turnover",
+      "outputExpression": "round(result[3], 2)",
+      "tolerance": 0.02
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You've added **real-world portfolio constraints**—the features that turn theoretical optimizers into practical tools. Here's what each piece does:
+
+**Position limits** (`w <= w_max`): Caps the maximum weight in any single asset. Without this, optimizers often concentrate in one or two assets based on noisy return estimates. A 10% cap forces diversification and protects against estimation error.
+
+**Sector constraints** (`sum(w[sector_i]) <= sector_max`): Limits exposure to groups of correlated assets. Even if the optimizer loves tech stocks, you can cap sector exposure at 40% to avoid concentration risk. This requires a sector mapping and constraint for each sector.
+
+**Turnover constraint** (`sum(|w_new - w_old|) <= turnover_max`): Limits how much the portfolio can change from its current state. This is critical for managing transaction costs—a theoretical rebalance that trades 100% of the portfolio would be destroyed by trading costs.
+
+**Constraint stacking**: All these constraints are simply added to the constraint list. CVXPY handles the intersection automatically. The optimizer finds the best portfolio in the feasible region defined by *all* constraints simultaneously.
+
+**A concrete example**: Starting from a 60/40 stock/bond portfolio, you want to optimize. Without turnover constraints, the optimizer might suggest 100% stocks. With a 20% turnover limit, it can only move 20% of assets—perhaps shifting to 68/32. The constraint ensures gradual, cost-effective transitions.
+
+**Why this matters**: Unconstrained mean-variance optimization is notoriously unstable—small changes in inputs cause wild swings in weights. Real-world constraints act as regularizers: they bound the solution space and produce portfolios that are robust to input uncertainty. At institutional asset managers, the constraint specification often takes longer than the optimization itself.
+
+<Checkpoint
+  id="checkpoint-4"
+  title="Checkpoint: Real-World Constraints"
+  requiredBlockIds={["quiz-4-1a", "quiz-4-1b", "quiz-4-1c", "quiz-4-1", "code-4-1a", "code-4-1b", "code-4-1c"]}
+  minRequired={5}
+  lockedMessage="Complete at least 5 of the 7 tasks above to continue."
+>
+
+**Key insight:** Constraints shape portfolios more than objectives. Every constraint has a cost in terms of achievable risk-return.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-4" lockedTitle="Section 5: Robustness and Numerical Stability">
+
+## Section 5: Robustness and Numerical Stability
+
+Estimated covariance matrices are often ill-conditioned. Small estimation errors can cause wild swings in optimal weights. Regularization makes the optimizer behave sensibly.
+
+### The Conditioning Problem
+
+A matrix is ill-conditioned when small input changes cause large output changes. For covariance matrices, this happens when:
+- Some eigenvalues are very close to zero
+- Assets are highly correlated
+- Sample size is small relative to number of assets
+
+The condition number $\kappa(\Sigma) = \lambda_{\max} / \lambda_{\min}$ measures this. Large $\kappa$ means trouble.
+
+### Regularization
+
+Adding a small multiple of the identity matrix improves conditioning:
+
+$$\Sigma_{\text{reg}} = \Sigma + \epsilon I$$
+
+This shrinks eigenvalues toward $\epsilon$, preventing near-zero eigenvalues from causing numerical issues.
+
+<Quiz
+  id="quiz-5-1a"
+  question="If Σ has eigenvalues λ₁, λ₂, ..., λₙ, what are the eigenvalues of Σ + εI?"
+  options={[
+    "λ₁ε, λ₂ε, ..., λₙε",
+    "λ₁/ε, λ₂/ε, ..., λₙ/ε",
+    "λ₁ + ε, λ₂ + ε, ..., λₙ + ε",
+    "max(λ₁, ε), max(λ₂, ε), ..., max(λₙ, ε)"
+  ]}
+  correct={2}
+  explanation="Adding εI shifts every eigenvalue up by ε. If Σv = λv, then (Σ + εI)v = Σv + εv = λv + εv = (λ + ε)v. This is why regularization prevents near-zero eigenvalues—they become at least ε."
+/>
+
+<Quiz
+  id="quiz-5-1b"
+  question="How does adding εI affect the shape of constant-variance ellipsoids wᵀΣw = c?"
+  options={[
+    "Ellipsoids stretch along the direction of largest variance",
+    "Ellipsoids become more elongated as ε increases",
+    "Ellipsoids become more spherical (rounder) as ε increases",
+    "Ellipsoid shape is unchanged; only the size changes"
+  ]}
+  correct={2}
+  explanation="The ellipsoid axes are proportional to 1/√λᵢ. Adding ε raises all eigenvalues, but small eigenvalues increase proportionally more. This reduces the ratio of longest to shortest axis, making ellipsoids rounder. Very elongated ellipsoids (from near-zero eigenvalues) become more circular, stabilizing the optimization."
+/>
+
+<Quiz
+  id="quiz-5-1"
+  question="Why does regularization reduce extreme portfolio weights?"
+  options={[
+    "It artificially increases correlations, forcing diversification across all assets equally",
+    "It reduces the sensitivity to estimated covariances, preventing amplification of estimation errors",
+    "It adds a penalty term that explicitly punishes large individual positions",
+    "It changes the objective from variance minimization to return maximization"
+  ]}
+  correct={1}
+  explanation="Extreme weights often arise from tiny eigenvalues—the optimizer exploits small estimated differences that may be noise. Regularization raises the floor on eigenvalues, making the optimizer less sensitive to these potentially spurious patterns. The result is more stable, sensible weights."
+/>
+
+### Exercise 1: Symmetrize and Regularize
+
+Implement covariance matrix preprocessing.
+
+<CodeExercise
+  id="code-5-1a"
+  starterCode={`import numpy as np
+
+def preprocess_covariance(Sigma, epsilon=1e-4):
+    """
+    Symmetrize and regularize a covariance matrix.
+
+    Args:
+        Sigma: Raw covariance matrix (may have numerical asymmetry)
+        epsilon: Regularization parameter
+
+    Returns:
+        float: The condition number AFTER regularization
+               (should be lower than before for ill-conditioned matrices)
+    """
+    # TODO: Symmetrize: Sigma_sym = (Sigma + Sigma.T) / 2
+
+    # TODO: Regularize: Sigma_reg = Sigma_sym + epsilon * I
+
+    # TODO: Compute and return condition number after regularization
+    # Use np.linalg.cond(Sigma_reg)
+
+    pass`}
+  solution={`import numpy as np
+
+def preprocess_covariance(Sigma, epsilon=1e-4):
+    Sigma_sym = (Sigma + Sigma.T) / 2
+
+    n = Sigma.shape[0]
+    Sigma_reg = Sigma_sym + epsilon * np.eye(n)
+
+    condition_after = np.linalg.cond(Sigma_reg)
+
+    return condition_after`}
+  hint="Use np.linalg.cond for condition number. Add epsilon * np.eye(n) for regularization."
+  tests={[
+    {
+      "input": ["np.eye(2)", 0.01],
+      "expected": 1.0,
+      "hidden": false,
+      "description": "Identity matrix has condition 1",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([[1.0, 0.99], [0.99, 1.0]])", 0.1],
+      "expected": 19.0,
+      "hidden": false,
+      "description": "Regularization reduces ill-conditioning",
+      "tolerance": 2.0
+    }
+  ]}
+/>
+
+### Exercise 2: Test Regularization Impact
+
+Study how regularization affects portfolio weights.
+
+<CodeExercise
+  id="code-5-1b"
+  starterCode={`import numpy as np
+import cvxpy as cp
+
+def test_regularization_impact(mu, Sigma, epsilons):
+    """
+    Test how different regularization levels affect the optimal portfolio.
+
+    Args:
+        mu: Expected returns vector
+        Sigma: Covariance matrix
+        epsilons: List of regularization values to test
+
+    Returns:
+        Dict with results for each epsilon:
+        {
+            epsilon: {
+                'weights': array,
+                'return': float,
+                'volatility': float,
+                'max_weight': float,
+                'condition': float
+            }
+        }
+    """
+    # TODO: For each epsilon value:
+    # 1. Regularize the covariance matrix
+    # 2. Solve min variance portfolio using CVXPY
+    # 3. Record weights, metrics, and condition number
+
+    pass`}
+  solution={`import numpy as np
+import cvxpy as cp
+
+def test_regularization_impact(mu, Sigma, epsilons):
+    results = {}
+
+    for eps in epsilons:
+        n = Sigma.shape[0]
+        Sigma_reg = (Sigma + Sigma.T) / 2 + eps * np.eye(n)
+        condition = np.linalg.cond(Sigma_reg)
+
+        w = cp.Variable(n)
+        objective = cp.Minimize(cp.quad_form(w, Sigma_reg))
+        constraints = [cp.sum(w) == 1, w >= 0]
+
+        prob = cp.Problem(objective, constraints)
+        prob.solve(solver=cp.CLARABEL)
+
+        weights = w.value
+        port_return = float(mu @ weights)
+        port_vol = float(np.sqrt(weights @ Sigma @ weights))
+
+        results[eps] = {
+            'weights': weights,
+            'return': port_return,
+            'volatility': port_vol,
+            'max_weight': float(np.max(weights)),
+            'condition': condition
+        }
+
+    return results`}
+  hint="Loop through epsilon values. For each, regularize Sigma, solve the optimization with CVXPY, and store results in a dictionary."
+  tests={[
+    {
+      "input": ["np.array([0.10, 0.10, 0.10])", "np.array([[1.0, 0.99, 0.99], [0.99, 1.0, 0.99], [0.99, 0.99, 1.0]])", "[0.001, 0.1]"],
+      "expected": 2,
+      "hidden": false,
+      "description": "Returns results for all epsilon values",
+      "outputExpression": "len(result)"
+    },
+    {
+      "input": ["np.array([0.10, 0.10, 0.10])", "np.array([[1.0, 0.99, 0.99], [0.99, 1.0, 0.99], [0.99, 0.99, 1.0]])", "[0.001, 0.1]"],
+      "expected": true,
+      "hidden": false,
+      "description": "Higher epsilon reduces condition number",
+      "outputExpression": "result[0.1]['condition'] < result[0.001]['condition']"
+    },
+    {
+      "input": ["np.array([0.10, 0.10, 0.10])", "np.eye(3) * 0.04", "[0.01]"],
+      "expected": 0.333,
+      "hidden": false,
+      "description": "Equal returns/variance → equal weights (33%)",
+      "outputExpression": "round(result[0.01]['max_weight'], 3)",
+      "tolerance": 0.02
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You've implemented **covariance regularization**—the technique that makes optimizers stable enough for production use. Here's what each piece does:
+
+**Eigenvalue analysis** (`np.linalg.eigvalsh(Sigma)`): The eigenvalues reveal your covariance matrix's numerical health. Small or negative eigenvalues make the matrix nearly singular, causing wild weight swings. By checking eigenvalues first, you diagnose problems before they corrupt your optimization.
+
+**Regularization** (`Sigma + epsilon * I`): Adding a small multiple of the identity matrix raises all eigenvalues by epsilon. This is called Tikhonov regularization or ridge regularization. It's the single most important technique for robust portfolio optimization.
+
+**Condition number** (`max(eigenvalues) / min(eigenvalues)`): This measures how sensitive the solution is to input perturbations. A condition number of 1,000 means a 0.1% change in inputs could cause a 100% change in outputs. Regularization dramatically reduces this ratio.
+
+**Multi-epsilon analysis**: By testing several epsilon values, you see the tradeoff directly. Too small: no stability gain. Too large: you're optimizing against a matrix that doesn't reflect reality. Typical values are 1e-4 to 1e-2 times the matrix's average diagonal.
+
+**A concrete example**: Your sample covariance matrix might have eigenvalues [0.04, 0.02, 0.001, 0.0001]. The condition number is 400. After regularization with ε = 0.001, the eigenvalues become [0.041, 0.021, 0.002, 0.0011], and the condition number drops to 37. The optimizer now produces stable, reasonable weights.
+
+**Why this matters**: In production, covariance matrices are estimated from data. With 50 assets and 250 days of returns, you're estimating 1,275 parameters from limited data. The matrix is inevitably noisy, and small eigenvalues are artifacts of sampling error. Regularization acknowledges this uncertainty and produces portfolios that perform better out-of-sample. This is why every serious quantitative investor uses regularization.
+
+<Checkpoint
+  id="checkpoint-5"
+  title="Checkpoint: Robustness"
+  requiredBlockIds={["quiz-5-1a", "quiz-5-1b", "quiz-5-1", "code-5-1a", "code-5-1b"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+>
+
+**Key insight:** Regularization trades a small amount of optimality for a large gain in stability.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-5" lockedTitle="Section 6: Cardinality Constraints (Optional)">
+
+## Section 6: Cardinality Constraints (Optional Deep Dive)
+
+<div className="p-4 bg-phthalo-500/10 border border-phthalo-500/30 rounded-lg mb-6">
+  <p className="text-sm text-zinc-300">
+    <strong className="text-phthalo-400">Optional Section:</strong> This section explores cardinality constraints—a non-convex extension to portfolio optimization. It's included for those interested in more advanced topics. Feel free to skip ahead to Section 7 if you want to focus on the core material.
+  </p>
+</div>
+
+Sometimes you want a portfolio with at most $K$ assets. This is operationally useful—fewer positions means lower transaction costs and simpler management.
+
+### The Cardinality Constraint
+
+Mathematically, we want to limit the number of non-zero weights:
+
+$$\|w\|_0 \leq K$$
+
+where $\|w\|_0$ counts non-zero entries (the "zero-norm"). For example, $\|(0.3, 0, 0.7, 0)\|_0 = 2$.
+
+### Why It's Hard
+
+**This constraint is non-convex.** Consider why: if $w_1 = (1, 0, 0)$ and $w_2 = (0, 1, 0)$ both satisfy $\|w\|_0 \leq 1$, their convex combination $(0.5, 0.5, 0)$ has $\|w\|_0 = 2$, violating the constraint.
+
+The feasible set is a union of subspaces—not convex. Standard solvers can't handle this directly.
+
+### Modeling Approaches
+
+Since $\|w\|_0 \leq K$ isn't convex, we need alternative approaches:
+
+**1. Mixed-Integer Programming (MIP)**
+
+Introduce binary variables $z_i \in \{0, 1\}$ indicating whether asset $i$ is held:
+
+$$w_i \leq z_i \cdot w_{\max} \quad \text{(if } z_i = 0 \text{, then } w_i = 0\text{)}$$
+$$\sum_i z_i \leq K \quad \text{(at most K assets)}$$
+
+This is exact but computationally expensive for large $n$.
+
+**2. Greedy Heuristic**
+
+A practical approach that works well:
+
+```python
+# Step 1: Solve unconstrained problem
+w = cp.Variable(n)
+objective = cp.Maximize(mu @ w - lambda * cp.quad_form(w, Sigma))
+constraints = [cp.sum(w) == 1, w >= 0]
+prob = cp.Problem(objective, constraints)
+prob.solve()
+
+# Step 2: Keep top K assets by weight
+selected = np.argsort(w.value)[-K:]
+
+# Step 3: Re-optimize over only selected assets
+mu_sub = mu[selected]
+Sigma_sub = Sigma[np.ix_(selected, selected)]
+
+w_sub = cp.Variable(K)
+# ... solve again with subset
+```
+
+This heuristic is fast and often near-optimal, though not guaranteed to find the global optimum.
+
+### Further Reading
+
+For a deeper dive into cardinality-constrained portfolio optimization, including mixed-integer formulations and advanced heuristics, see:
+
+<div className="p-4 bg-zinc-900/50 border border-zinc-700 rounded-lg">
+  <a
+    href="https://github.com/mirkovicdev/Cardinality-Constrained-Portfolio-Optimization"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-phthalo-400 hover:text-phthalo-300 font-medium"
+  >
+    github.com/mirkovicdev/Cardinality-Constrained-Portfolio-Optimization
+  </a>
+  <p className="text-sm text-zinc-400 mt-2">
+    A comprehensive repository covering exact MIP formulations, heuristic methods, and performance comparisons.
+  </p>
+</div>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-5" lockedTitle="Section 7: Final Integration">
+
+## Section 7: Final Integration and Quant Decision
+
+You've built a complete portfolio optimization toolkit. Now let's connect all the pieces and run a full analysis on realistic market data.
+
+### 7.1 Your Toolkit
+
+Here's every function you built, organized by purpose:
+
+**Section 1: Minimum Variance Portfolio**
+- `solve_min_variance(Sigma)` → Find weights that minimize portfolio variance
+- Understand why diversification reduces risk mathematically
+
+**Section 2: Efficient Frontier via Target Returns**
+- `solve_target_return(mu, Sigma, target)` → Find min-variance portfolio for a given return
+- `build_efficient_frontier(mu, Sigma, n_points)` → Trace the full efficient frontier
+
+**Section 3: Efficient Frontier via Risk Aversion**
+- `solve_risk_aversion(mu, Sigma, lambda)` → Solve risk-aversion formulation
+- `build_frontier_risk_aversion(mu, Sigma, n_points)` → Sweep λ to trace frontier
+
+**Section 4: Real-World Constraints**
+- `solve_with_position_limits(mu, Sigma, max_weight, lambda)` → Add per-asset caps
+- `solve_with_sector_limits(mu, Sigma, sector_map, sector_limits, lambda)` → Add sector exposure limits
+- `solve_with_turnover(mu, Sigma, w_current, max_turnover, lambda)` → Limit portfolio changes
+
+**Section 5: Robustness**
+- `preprocess_covariance(Sigma, epsilon)` → Regularize ill-conditioned matrices
+- `test_regularization_impact(mu, Sigma, epsilons)` → Analyze stability across regularization levels
+
+### 7.2 Full Analysis Pipeline
+
+Now let's run everything on realistic market data. This code combines all your functions into one complete analysis—from raw data to final portfolio recommendation.
+
+<CodeExercise
+  id="code-7-1"
+  starterCode={`import numpy as np
+import cvxpy as cp
+import matplotlib.pyplot as plt
+
+# ============================================================
+# STEP 1: Generate market data (6 assets for faster execution)
+# ============================================================
+
+np.random.seed(42)
+assets = ['Tech', 'Finance', 'Energy', 'Healthcare', 'Consumer', 'Utilities']
+mu = np.array([0.12, 0.08, 0.09, 0.08, 0.07, 0.05])
+vols = np.array([0.25, 0.18, 0.30, 0.22, 0.19, 0.15])
+
+# Correlation matrix with sector structure
+corr = np.array([
+    [1.0, 0.4, 0.3, 0.3, 0.4, 0.2],
+    [0.4, 1.0, 0.4, 0.3, 0.3, 0.3],
+    [0.3, 0.4, 1.0, 0.2, 0.3, 0.2],
+    [0.3, 0.3, 0.2, 1.0, 0.4, 0.3],
+    [0.4, 0.3, 0.3, 0.4, 1.0, 0.4],
+    [0.2, 0.3, 0.2, 0.3, 0.4, 1.0]
+])
+Sigma = np.outer(vols, vols) * corr
+n = len(mu)
+
+# ============================================================
+# STEP 2: Portfolio optimization function
+# ============================================================
+
+def solve_portfolio(mu, Sigma, risk_aversion=1.0, max_weight=1.0, epsilon=1e-4):
+    n = len(mu)
+    Sigma_reg = (Sigma + Sigma.T) / 2 + epsilon * np.eye(n)
+    w = cp.Variable(n)
+    objective = cp.Maximize(mu @ w - risk_aversion * cp.quad_form(w, Sigma_reg))
+    constraints = [cp.sum(w) == 1, w >= 0, w <= max_weight]
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=cp.CLARABEL)
+    if w.value is None:
+        weights = np.ones(n) / n
+    else:
+        weights = np.array(w.value).flatten()
+    port_return = float(np.dot(mu, weights))
+    port_vol = float(np.sqrt(np.dot(weights, np.dot(Sigma, weights))))
+    return {'weights': weights, 'return': port_return, 'volatility': port_vol,
+            'sharpe': port_return / port_vol if port_vol > 0 else 0}
+
+# ============================================================
+# STEP 3: Run analysis
+# ============================================================
+
+print("=" * 60)
+print("PORTFOLIO OPTIMIZATION ANALYSIS")
+print("=" * 60)
+
+# Asset characteristics
+print("\\nASSET CHARACTERISTICS")
+print("-" * 45)
+print(f"{'Asset':<12} {'Return':<10} {'Vol':<10} {'Sharpe':<8}")
+print("-" * 45)
+for i, name in enumerate(assets):
+    print(f"{name:<12} {mu[i]*100:>6.1f}%    {vols[i]*100:>6.1f}%   {mu[i]/vols[i]:>6.2f}")
+
+# Compare strategies
+print("\\n" + "=" * 60)
+print("STRATEGY COMPARISON")
+print("=" * 60)
+strategies = [
+    ('Aggressive (λ=0.5)', 0.5, 1.0),
+    ('Balanced (λ=2.0)', 2.0, 1.0),
+    ('Conservative (λ=5.0)', 5.0, 1.0),
+    ('Diversified (25% cap)', 2.0, 0.25),
+]
+
+results = {}
+print(f"{'Strategy':<22} {'Return':<9} {'Vol':<9} {'Sharpe':<8}")
+print("-" * 50)
+for name, lam, max_w in strategies:
+    r = solve_portfolio(mu, Sigma, risk_aversion=lam, max_weight=max_w)
+    results[name] = r
+    print(f"{name:<22} {r['return']*100:>5.1f}%    {r['volatility']*100:>5.1f}%   {r['sharpe']:>6.2f}")
+
+# Constraint cost analysis
+print("\\n" + "=" * 60)
+print("CONSTRAINT COST ANALYSIS")
+print("=" * 60)
+base = solve_portfolio(mu, Sigma, risk_aversion=2.0, max_weight=1.0)
+print(f"Unconstrained Sharpe: {base['sharpe']:.3f}")
+print(f"\\n{'Max Weight':<12} {'Sharpe':<10} {'Cost':<10}")
+print("-" * 35)
+for limit in [0.50, 0.30, 0.20, 0.15]:
+    r = solve_portfolio(mu, Sigma, risk_aversion=2.0, max_weight=limit)
+    cost = (base['sharpe'] - r['sharpe']) / base['sharpe'] * 100
+    print(f"{limit*100:>5.0f}%       {r['sharpe']:>6.3f}     {cost:>5.1f}%")
+
+# ============================================================
+# STEP 4: Visualization
+# ============================================================
+
+fig, ax = plt.subplots(figsize=(10, 7))
+
+# Build efficient frontier
+def build_frontier(mu, Sigma, max_weight=1.0, n_pts=30):
+    returns, volatilities = [], []
+    Sigma_reg = (Sigma + Sigma.T) / 2 + 1e-4 * np.eye(len(mu))
+    for target in np.linspace(min(mu)*0.6, max(mu)*0.95, n_pts):
+        w = cp.Variable(len(mu))
+        prob = cp.Problem(cp.Minimize(cp.quad_form(w, Sigma_reg)),
+                         [cp.sum(w) == 1, w >= 0, w <= max_weight, mu @ w >= target])
+        prob.solve(solver=cp.CLARABEL)
+        if prob.status == 'optimal':
+            returns.append(float(mu @ w.value))
+            volatilities.append(float(np.sqrt(w.value @ Sigma @ w.value)))
+    return np.array(returns), np.array(volatilities)
+
+ret_unc, vol_unc = build_frontier(mu, Sigma, max_weight=1.0)
+ret_con, vol_con = build_frontier(mu, Sigma, max_weight=0.25)
+
+ax.plot(vol_unc * 100, ret_unc * 100, 'b-', linewidth=2.5, label='Unconstrained Frontier')
+ax.plot(vol_con * 100, ret_con * 100, 'g--', linewidth=2.5, label='25% Cap Frontier')
+
+# Plot assets
+ax.scatter(vols * 100, mu * 100, c='gray', s=100, alpha=0.8, zorder=5, edgecolors='white')
+for i, name in enumerate(assets):
+    ax.annotate(name, (vols[i]*100 + 0.3, mu[i]*100), fontsize=9)
+
+# Plot strategy portfolios
+markers = {'Aggressive (λ=0.5)': ('red', 'o'), 'Balanced (λ=2.0)': ('blue', 's'),
+           'Conservative (λ=5.0)': ('green', '^'), 'Diversified (25% cap)': ('purple', 'D')}
+for name, (color, marker) in markers.items():
+    r = results[name]
+    ax.scatter(r['volatility']*100, r['return']*100, c=color, s=180,
+               marker=marker, zorder=10, label=name, edgecolors='white', linewidth=1.5)
+
+ax.set_xlabel('Volatility (%)', fontsize=12, fontweight='bold')
+ax.set_ylabel('Expected Return (%)', fontsize=12, fontweight='bold')
+ax.set_title('Efficient Frontier with Strategy Portfolios', fontsize=14, fontweight='bold')
+ax.legend(loc='lower right', fontsize=9)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+print("\\n" + "=" * 60)
+print("RECOMMENDATION: Balanced strategy with 25% position cap")
+print("=" * 60)
+print("Sharpe cost of constraints: ~5-8% (acceptable for robustness)")`}
+  solution={`import numpy as np
+import cvxpy as cp
+import matplotlib.pyplot as plt
+
+# ============================================================
+# STEP 1: Generate market data (6 assets for faster execution)
+# ============================================================
+
+np.random.seed(42)
+assets = ['Tech', 'Finance', 'Energy', 'Healthcare', 'Consumer', 'Utilities']
+mu = np.array([0.12, 0.08, 0.09, 0.08, 0.07, 0.05])
+vols = np.array([0.25, 0.18, 0.30, 0.22, 0.19, 0.15])
+
+# Correlation matrix with sector structure
+corr = np.array([
+    [1.0, 0.4, 0.3, 0.3, 0.4, 0.2],
+    [0.4, 1.0, 0.4, 0.3, 0.3, 0.3],
+    [0.3, 0.4, 1.0, 0.2, 0.3, 0.2],
+    [0.3, 0.3, 0.2, 1.0, 0.4, 0.3],
+    [0.4, 0.3, 0.3, 0.4, 1.0, 0.4],
+    [0.2, 0.3, 0.2, 0.3, 0.4, 1.0]
+])
+Sigma = np.outer(vols, vols) * corr
+n = len(mu)
+
+# ============================================================
+# STEP 2: Portfolio optimization function
+# ============================================================
+
+def solve_portfolio(mu, Sigma, risk_aversion=1.0, max_weight=1.0, epsilon=1e-4):
+    n = len(mu)
+    Sigma_reg = (Sigma + Sigma.T) / 2 + epsilon * np.eye(n)
+    w = cp.Variable(n)
+    objective = cp.Maximize(mu @ w - risk_aversion * cp.quad_form(w, Sigma_reg))
+    constraints = [cp.sum(w) == 1, w >= 0, w <= max_weight]
+    prob = cp.Problem(objective, constraints)
+    prob.solve(solver=cp.CLARABEL)
+    if w.value is None:
+        weights = np.ones(n) / n
+    else:
+        weights = np.array(w.value).flatten()
+    port_return = float(np.dot(mu, weights))
+    port_vol = float(np.sqrt(np.dot(weights, np.dot(Sigma, weights))))
+    return {'weights': weights, 'return': port_return, 'volatility': port_vol,
+            'sharpe': port_return / port_vol if port_vol > 0 else 0}
+
+# ============================================================
+# STEP 3: Run analysis
+# ============================================================
+
+print("=" * 60)
+print("PORTFOLIO OPTIMIZATION ANALYSIS")
+print("=" * 60)
+
+# Asset characteristics
+print("\\nASSET CHARACTERISTICS")
+print("-" * 45)
+print(f"{'Asset':<12} {'Return':<10} {'Vol':<10} {'Sharpe':<8}")
+print("-" * 45)
+for i, name in enumerate(assets):
+    print(f"{name:<12} {mu[i]*100:>6.1f}%    {vols[i]*100:>6.1f}%   {mu[i]/vols[i]:>6.2f}")
+
+# Compare strategies
+print("\\n" + "=" * 60)
+print("STRATEGY COMPARISON")
+print("=" * 60)
+strategies = [
+    ('Aggressive (λ=0.5)', 0.5, 1.0),
+    ('Balanced (λ=2.0)', 2.0, 1.0),
+    ('Conservative (λ=5.0)', 5.0, 1.0),
+    ('Diversified (25% cap)', 2.0, 0.25),
+]
+
+results = {}
+print(f"{'Strategy':<22} {'Return':<9} {'Vol':<9} {'Sharpe':<8}")
+print("-" * 50)
+for name, lam, max_w in strategies:
+    r = solve_portfolio(mu, Sigma, risk_aversion=lam, max_weight=max_w)
+    results[name] = r
+    print(f"{name:<22} {r['return']*100:>5.1f}%    {r['volatility']*100:>5.1f}%   {r['sharpe']:>6.2f}")
+
+# Constraint cost analysis
+print("\\n" + "=" * 60)
+print("CONSTRAINT COST ANALYSIS")
+print("=" * 60)
+base = solve_portfolio(mu, Sigma, risk_aversion=2.0, max_weight=1.0)
+print(f"Unconstrained Sharpe: {base['sharpe']:.3f}")
+print(f"\\n{'Max Weight':<12} {'Sharpe':<10} {'Cost':<10}")
+print("-" * 35)
+for limit in [0.50, 0.30, 0.20, 0.15]:
+    r = solve_portfolio(mu, Sigma, risk_aversion=2.0, max_weight=limit)
+    cost = (base['sharpe'] - r['sharpe']) / base['sharpe'] * 100
+    print(f"{limit*100:>5.0f}%       {r['sharpe']:>6.3f}     {cost:>5.1f}%")
+
+# ============================================================
+# STEP 4: Visualization
+# ============================================================
+
+fig, ax = plt.subplots(figsize=(10, 7))
+
+# Build efficient frontier
+def build_frontier(mu, Sigma, max_weight=1.0, n_pts=30):
+    returns, volatilities = [], []
+    Sigma_reg = (Sigma + Sigma.T) / 2 + 1e-4 * np.eye(len(mu))
+    for target in np.linspace(min(mu)*0.6, max(mu)*0.95, n_pts):
+        w = cp.Variable(len(mu))
+        prob = cp.Problem(cp.Minimize(cp.quad_form(w, Sigma_reg)),
+                         [cp.sum(w) == 1, w >= 0, w <= max_weight, mu @ w >= target])
+        prob.solve(solver=cp.CLARABEL)
+        if prob.status == 'optimal':
+            returns.append(float(mu @ w.value))
+            volatilities.append(float(np.sqrt(w.value @ Sigma @ w.value)))
+    return np.array(returns), np.array(volatilities)
+
+ret_unc, vol_unc = build_frontier(mu, Sigma, max_weight=1.0)
+ret_con, vol_con = build_frontier(mu, Sigma, max_weight=0.25)
+
+ax.plot(vol_unc * 100, ret_unc * 100, 'b-', linewidth=2.5, label='Unconstrained Frontier')
+ax.plot(vol_con * 100, ret_con * 100, 'g--', linewidth=2.5, label='25% Cap Frontier')
+
+# Plot assets
+ax.scatter(vols * 100, mu * 100, c='gray', s=100, alpha=0.8, zorder=5, edgecolors='white')
+for i, name in enumerate(assets):
+    ax.annotate(name, (vols[i]*100 + 0.3, mu[i]*100), fontsize=9)
+
+# Plot strategy portfolios
+markers = {'Aggressive (λ=0.5)': ('red', 'o'), 'Balanced (λ=2.0)': ('blue', 's'),
+           'Conservative (λ=5.0)': ('green', '^'), 'Diversified (25% cap)': ('purple', 'D')}
+for name, (color, marker) in markers.items():
+    r = results[name]
+    ax.scatter(r['volatility']*100, r['return']*100, c=color, s=180,
+               marker=marker, zorder=10, label=name, edgecolors='white', linewidth=1.5)
+
+ax.set_xlabel('Volatility (%)', fontsize=12, fontweight='bold')
+ax.set_ylabel('Expected Return (%)', fontsize=12, fontweight='bold')
+ax.set_title('Efficient Frontier with Strategy Portfolios', fontsize=14, fontweight='bold')
+ax.legend(loc='lower right', fontsize=9)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+print("\\n" + "=" * 60)
+print("RECOMMENDATION: Balanced strategy with 25% position cap")
+print("=" * 60)
+print("Sharpe cost of constraints: ~5-8% (acceptable for robustness)")`}
+  hint="This is a run-through exercise. Click Run Code to execute the full analysis and see results."
+  tests={[]}
+/>
+
+### 7.3 Interpreting the Results
+
+The analysis above demonstrates several key insights:
+
+**Asset Characteristics**: Individual assets have Sharpe ratios ranging from 0.3 to 0.5. Tech has the highest return (12%) but also high volatility (25%). Utilities has the lowest return (5%) but also lowest volatility (15%). No single asset dominates—this is typical of real markets.
+
+**Strategy Comparison**: Higher risk aversion (λ) shifts the portfolio toward lower volatility at the cost of lower returns. The aggressive strategy (λ=0.5) maximizes return but takes more risk. The conservative strategy (λ=5.0) minimizes risk. Position limits (25% cap) force diversification, slightly reducing Sharpe but preventing dangerous concentrations.
+
+**Constraint Cost Analysis**: Tighter position limits cost performance. Going from unconstrained to 15-20% cap costs about 5-10% of Sharpe. This is the price of risk management—usually worth paying for robustness.
+
+**The Visualization**: The efficient frontier shows the fundamental risk-return tradeoff. The constrained frontier (green dashed) lies inside the unconstrained frontier (blue solid)—position limits reduce achievable performance. However, the gap is small for reasonable limits (25%). Individual assets sit well below the frontier—diversification creates real value.
+
+<Quiz
+  id="quiz-7-1"
+  question="Based on the analysis, why might a practitioner choose the 25% position limit despite its Sharpe ratio cost?"
+  options={[
+    "Position limits make the optimization problem easier to solve computationally",
+    "Position limits eliminate all portfolio risk and guarantee positive returns",
+    "Position limits protect against estimation error and single-stock blowups",
+    "Position limits are required by law for all investment portfolios"
+  ]}
+  correct={2}
+  explanation="The ~5-10% Sharpe cost of position limits is insurance against model failure. If your return estimates are wrong (they always are), concentrated positions amplify mistakes. Position limits bound your downside when the model is wrong—a practical necessity, not a regulatory requirement."
+/>
+
+### What You Just Built
+
+You've completed a **production-quality portfolio optimization system**. Here's what each component does:
+
+**Core solver** (`solve_portfolio()`): Handles the complete optimization with risk aversion, position limits, and regularization. This single function encapsulates everything from Sections 1-5: the quadratic objective, CVXPY constraints, and solver invocation.
+
+**Strategy comparison**: Comparing aggressive (λ=0.5), balanced (λ=2.0), conservative (λ=5.0), and constrained (25% cap) portfolios shows how parameters affect outcomes. This is how quants present recommendations to portfolio managers—not a single "optimal" answer, but a menu of options with clear tradeoffs.
+
+**Constraint cost analysis**: Quantifying the Sharpe cost of position limits (5-10% for reasonable caps) helps justify risk management decisions with numbers, not intuition. When a PM asks "why not concentrate in your best ideas?", you have a data-driven answer.
+
+**Efficient frontier visualization**: The plot shows unconstrained vs. constrained frontiers, individual assets, and strategy portfolios all in one view. This single chart communicates the core message: diversification creates value, constraints cost something, but not much.
+
+**Why this matters**: This is the actual workflow at quantitative asset managers. The tools differ (often proprietary), but the logic is identical: estimate inputs, optimize with constraints, analyze tradeoffs, make defensible recommendations. You've built a simplified version of what runs at firms like AQR, Two Sigma, and DE Shaw.
+
+<Checkpoint
+  id="checkpoint-7"
+  title="Checkpoint: Final Integration"
+  requiredBlockIds={["code-7-1", "quiz-7-1"]}
+  minRequired={2}
+  lockedMessage="Run the full analysis and answer the quiz to complete the project."
+>
+
+**Congratulations.** You have built a complete portfolio optimization system that handles real-world constraints, numerical stability, and produces defensible allocation decisions.
+
+</Checkpoint>
+
+<DownloadNotebook
+  notebookPath="/notebooks/portfolio-optimizer.ipynb"
+  title="Download Complete Notebook"
+/>
+
+</GatedSection>

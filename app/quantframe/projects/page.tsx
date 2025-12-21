@@ -29,6 +29,7 @@ export default async function ProjectsPage() {
   // Add progress data to projects
   const projectsWithProgress = projects.map((project) => ({
     ...project,
+    totalBlocks: project.requiredBlockIds.length,
     completedBlocks: userProgress[project.slug]?.completedCount || 0,
     isCompleted: userProgress[project.slug]?.completed || false,
   }));

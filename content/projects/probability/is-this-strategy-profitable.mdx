@@ -1,0 +1,1622 @@
+# Is This Trading Strategy Actually Profitable?
+
+You have a simple trading strategy. It wins sometimes, loses sometimes, and pays costs every time. Your task is to decide whether it makes money in the long run.
+
+This is not a math lesson. This is a quant decision. By the end of this project, you will either **trade it** or **not trade it**, and you will justify that decision with numbers.
+
+Individual trades are noisy. A single winning trade proves nothing. A single losing trade proves nothing. What matters is **average outcome per trade, over many trades**. That's the only number that determines profitability.
+
+---
+
+## Section 0: The Task and the Rule for Decision-Making
+
+Before writing any code, we need to be precise about what "profitable" means.
+
+A strategy is profitable if, over many trades, you end up with more money than you started with. But luck can create short-term illusions, a string of wins in a losing strategy, or losses in a winning one. The only reliable measure cuts through the noise: **expected value per trade**.
+
+<TextResponse
+  id="text-0-1"
+  question="In your own words, what does 'profitable in the long run' mean for a trading strategy? Why can't we just look at a few trades to decide?"
+  placeholder="Think about averaging over many outcomes..."
+  maxLength={400}
+  label="Reflection"
+  referenceAnswer="Profitable in the long run means the average profit per trade is positive when computed over many trades. A few trades can mislead because random chance creates streaks, you might win 5 in a row in a strategy that loses on average. Only averaging over many trades reveals the true expected outcome."
+/>
+
+<Quiz
+  id="quiz-0-1"
+  question="Which is the correct question to ask when evaluating a strategy?"
+  options={[
+    "Does it win more often than it loses?",
+    "Does it make money on average per trade?",
+    "Does it have some big winning trades?",
+    "Did it look good on a recent backtest?"
+  ]}
+  correct={1}
+  explanation="Win rate alone is meaningless without knowing the sizes of wins and losses. A strategy that wins 90% of the time but loses 50x per loss when it loses can still be unprofitable. Only the average profit per trade, incorporating probabilities, payoffs, AND costs, tells you if a strategy is profitable."
+/>
+
+### Exercise 1: Create Strategy Parameters Array
+
+Every strategy is defined by four numbers: win probability, win amount, loss amount, and cost per trade. We represent this as a simple array for easy computation.
+
+<CodeExercise
+  id="code-0-1a"
+  starterCode={`import numpy as np
+
+def create_strategy_params(p_win, win_amount, loss_amount, cost):
+    """
+    Create a numpy array with strategy parameters.
+
+    Args:
+        p_win: Probability of winning (0 to 1)
+        win_amount: Amount gained on a win
+        loss_amount: Amount lost on a loss
+        cost: Fixed cost per trade
+
+    Returns:
+        numpy array: [p_win, win_amount, loss_amount, cost]
+
+    Example:
+        >>> create_strategy_params(0.6, 100, 80, 5)
+        array([  0.6, 100. ,  80. ,   5. ])
+    """
+    # TODO: Return a numpy array with the four parameters
+    pass`}
+  solution={`import numpy as np
+
+def create_strategy_params(p_win, win_amount, loss_amount, cost):
+    """
+    Create a numpy array with strategy parameters.
+    """
+    return np.array([p_win, win_amount, loss_amount, cost])`}
+  hint="Use np.array() with a list of the four values."
+  tests={[
+    {
+      "input": [0.6, 100, 80, 5],
+      "expected": [0.6, 100, 80, 5],
+      "hidden": false,
+      "description": "Basic strategy parameters"
+    },
+    {
+      "input": [0.5, 50, 50, 0],
+      "expected": [0.5, 50, 50, 0],
+      "hidden": false,
+      "description": "Fair bet with no costs"
+    },
+    {
+      "input": [0.3, 200, 50, 10],
+      "expected": [0.3, 200, 50, 10],
+      "hidden": true,
+      "description": "Low probability high reward"
+    }
+  ]}
+/>
+
+### Exercise 2: Compute Net P&L for a Trade
+
+Given the outcome (1 for win, 0 for loss) and strategy parameters, compute the net profit or loss.
+
+<CodeExercise
+  id="code-0-1b"
+  starterCode={`import numpy as np
+
+def compute_trade_pnl(outcome, params):
+    """
+    Compute net P&L for a single trade.
+
+    Args:
+        outcome: 1 for win, 0 for loss
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+
+    Returns:
+        Net P&L (float)
+        - If win (outcome=1): +win_amount - cost
+        - If loss (outcome=0): -loss_amount - cost
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> compute_trade_pnl(1, params)  # Win
+        95.0
+        >>> compute_trade_pnl(0, params)  # Loss
+        -85.0
+    """
+    # TODO: Extract win_amount, loss_amount, cost from params
+    # Return win_amount - cost if outcome==1, else -loss_amount - cost
+    pass`}
+  solution={`import numpy as np
+
+def compute_trade_pnl(outcome, params):
+    """
+    Compute net P&L for a single trade.
+    """
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    if outcome == 1:
+        return win_amount - cost
+    else:
+        return -loss_amount - cost`}
+  hint="Extract params[1], params[2], params[3] for win_amount, loss_amount, cost. Then use an if statement."
+  tests={[
+    {
+      "input": [1, "np.array([0.6, 100, 80, 5])"],
+      "expected": 95.0,
+      "hidden": false,
+      "description": "Winning trade: 100 - 5 = 95"
+    },
+    {
+      "input": [0, "np.array([0.6, 100, 80, 5])"],
+      "expected": -85.0,
+      "hidden": false,
+      "description": "Losing trade: -80 - 5 = -85"
+    },
+    {
+      "input": [1, "np.array([0.5, 50, 50, 0])"],
+      "expected": 50.0,
+      "hidden": true,
+      "description": "Win with no costs"
+    }
+  ]}
+/>
+
+### Exercise 3: Build Outcome Vectors
+
+Before computing expected value, let's create vectors representing all possible outcomes.
+
+<CodeExercise
+  id="code-0-1c"
+  starterCode={`import numpy as np
+
+def build_outcome_vectors(params):
+    """
+    Build vectors of probabilities and payoffs for all outcomes.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+
+    Returns:
+        Tuple of two arrays:
+        - probabilities: [p_win, 1-p_win]
+        - net_payoffs: [win_amount - cost, -loss_amount - cost]
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> probs, payoffs = build_outcome_vectors(params)
+        >>> probs
+        array([0.6, 0.4])
+        >>> payoffs
+        array([ 95., -85.])
+    """
+    # TODO: Extract parameters and build the two vectors
+    pass`}
+  solution={`import numpy as np
+
+def build_outcome_vectors(params):
+    """
+    Build vectors of probabilities and payoffs for all outcomes.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    probabilities = np.array([p_win, 1 - p_win])
+    net_payoffs = np.array([win_amount - cost, -loss_amount - cost])
+
+    return probabilities, net_payoffs`}
+  hint="The probability vector is [p_win, 1-p_win]. The payoff vector is [win - cost, -loss - cost]."
+  tests={[
+    {
+      "input": ["np.array([0.6, 100, 80, 5])"],
+      "expected": [[0.6, 0.4], [95.0, -85.0]],
+      "hidden": false,
+      "description": "Standard strategy vectors",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.5, 50, 50, 0])"],
+      "expected": [[0.5, 0.5], [50.0, -50.0]],
+      "hidden": false,
+      "description": "Fair bet vectors",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.7, 120, 100, 10])"],
+      "expected": [[0.7, 0.3], [110.0, -110.0]],
+      "hidden": true,
+      "description": "High win rate strategy",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You now have a clean representation of any trading strategy as arrays. This format allows us to use linear algebra for all calculations, the probability vector and payoff vector are just two arrays we can combine with a dot product.
+
+<Checkpoint
+  id="checkpoint-0"
+  title="Checkpoint: Strategy Representation"
+  requiredBlockIds={["text-0-1", "quiz-0-1", "code-0-1a", "code-0-1b", "code-0-1c"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+>
+
+**Key insight:** A strategy is fully defined by four numbers. Representing them as vectors lets us use linear algebra for efficient computation.
+
+</Checkpoint>
+
+---
+
+<GatedSection checkpointId="checkpoint-0" lockedTitle="Section 1: Build the Edge Calculator">
+
+## Section 1: Build the Edge Calculator (Expected Value)
+
+We have probability and payoff vectors. Now we compute the one number that determines everything: **expected value per trade**.
+
+Expected value is simply the dot product of probabilities and payoffs:
+
+$$\text{EV} = p_{\text{win}} \times \text{payoff}_{\text{win}} + p_{\text{loss}} \times \text{payoff}_{\text{loss}}$$
+
+<TextResponse
+  id="text-1-1"
+  question="If transaction costs increase by $1 per trade, what happens to your expected value per trade? Why?"
+  placeholder="Think about how costs affect each outcome..."
+  maxLength={400}
+  label="Prediction"
+  referenceAnswer="Expected value decreases by exactly $1. Every single trade, whether win or loss, pays the extra $1 in costs. Since EV is the average across all trades, and every trade now costs $1 more, EV drops by $1. Costs are killers because they are certain, not probabilistic."
+/>
+
+<Quiz
+  id="quiz-1-1"
+  question="A strategy wins 70% of the time. Is this enough information to know if it's profitable?"
+  options={[
+    "Yes, 70% win rate is good enough to guarantee profits",
+    "No, we also need to know the sizes of wins and losses, plus costs",
+    "Yes, any win rate above 50% means positive expected value",
+    "No, we need at least 100 historical trades to make this judgment"
+  ]}
+  correct={1}
+  explanation="A 70% win rate means nothing without payoff sizes. If you win $1 seventy times and lose $10 thirty times, you have made $70 and lost $300, a net loss of $230. The EV formula requires both probabilities AND payoff amounts (and costs)."
+/>
+
+### Exercise 1: Compute Expected Value with Dot Product
+
+Use the dot product to compute expected value from probability and payoff vectors.
+
+<CodeExercise
+  id="code-1-1a"
+  starterCode={`import numpy as np
+
+def expected_value(probs, payoffs):
+    """
+    Compute expected value using dot product.
+
+    Args:
+        probs: numpy array of probabilities (must sum to 1)
+        payoffs: numpy array of corresponding payoffs
+
+    Returns:
+        Expected value (float)
+
+    Example:
+        >>> probs = np.array([0.6, 0.4])
+        >>> payoffs = np.array([95, -85])
+        >>> expected_value(probs, payoffs)
+        23.0
+    """
+    # TODO: Return the dot product of probs and payoffs
+    pass`}
+  solution={`import numpy as np
+
+def expected_value(probs, payoffs):
+    """
+    Compute expected value using dot product.
+    """
+    return np.dot(probs, payoffs)`}
+  hint="Use np.dot(probs, payoffs) to compute the dot product."
+  tests={[
+    {
+      "input": ["np.array([0.6, 0.4])", "np.array([95, -85])"],
+      "expected": 23.0,
+      "hidden": false,
+      "description": "Positive EV strategy",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.5, 0.5])", "np.array([50, -50])"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "Fair game EV = 0",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.5, 0.5])", "np.array([45, -55])"],
+      "expected": -5.0,
+      "hidden": true,
+      "description": "Negative EV from costs",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 2: Compute EV Directly from Parameters
+
+Combine parameter extraction and EV computation in one function.
+
+<CodeExercise
+  id="code-1-1b"
+  starterCode={`import numpy as np
+
+def ev_from_params(params):
+    """
+    Compute expected value directly from strategy parameters.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+
+    Returns:
+        Expected value per trade
+
+    Formula:
+        EV = p_win * (win - cost) + (1 - p_win) * (-loss - cost)
+        EV = p_win * win - (1 - p_win) * loss - cost
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> ev_from_params(params)
+        23.0
+    """
+    # TODO: Extract parameters and compute EV
+    pass`}
+  solution={`import numpy as np
+
+def ev_from_params(params):
+    """
+    Compute expected value directly from strategy parameters.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+    return ev`}
+  hint="EV = p_win * win - (1-p_win) * loss - cost. Costs are paid on every trade."
+  tests={[
+    {
+      "input": ["np.array([0.6, 100, 80, 5])"],
+      "expected": 23.0,
+      "hidden": false,
+      "description": "Positive EV strategy",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.5, 50, 50, 0])"],
+      "expected": 0.0,
+      "hidden": false,
+      "description": "Fair game with no costs",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.5, 50, 50, 5])"],
+      "expected": -5.0,
+      "hidden": false,
+      "description": "Fair game destroyed by costs",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.3, 200, 50, 10])"],
+      "expected": 15.0,
+      "hidden": true,
+      "description": "Low win rate but big wins",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 3: Batch Compute EVs for Multiple Strategies
+
+Evaluate many strategies at once using vectorized operations.
+
+<CodeExercise
+  id="code-1-1c"
+  starterCode={`import numpy as np
+
+def batch_ev(params_matrix):
+    """
+    Compute EVs for multiple strategies at once.
+
+    Args:
+        params_matrix: 2D array where each row is [p_win, win, loss, cost]
+                       Shape: (n_strategies, 4)
+
+    Returns:
+        1D array of expected values, one per strategy
+
+    Example:
+        >>> params = np.array([
+        ...     [0.6, 100, 80, 5],
+        ...     [0.5, 50, 50, 0],
+        ...     [0.4, 100, 80, 5]
+        ... ])
+        >>> batch_ev(params)
+        array([23., 0., -29.])
+    """
+    # TODO: Extract columns and compute EVs for all strategies at once
+    pass`}
+  solution={`import numpy as np
+
+def batch_ev(params_matrix):
+    """
+    Compute EVs for multiple strategies at once.
+    """
+    p_wins = params_matrix[:, 0]
+    win_amounts = params_matrix[:, 1]
+    loss_amounts = params_matrix[:, 2]
+    costs = params_matrix[:, 3]
+
+    evs = p_wins * win_amounts - (1 - p_wins) * loss_amounts - costs
+    return evs`}
+  hint="Extract columns with params_matrix[:, 0], etc. Then apply the EV formula element-wise."
+  tests={[
+    {
+      "input": ["np.array([[0.6, 100, 80, 5], [0.5, 50, 50, 0], [0.4, 100, 80, 5]])"],
+      "expected": [23.0, 0.0, -13.0],
+      "hidden": false,
+      "description": "Three strategies with varying EVs",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([[0.5, 100, 100, 0], [0.5, 100, 100, 10]])"],
+      "expected": [0.0, -10.0],
+      "hidden": true,
+      "description": "Same strategy with/without costs",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### What You Just Built
+
+You now have an **expected value engine** that can:
+- Compute EV from probability and payoff vectors
+- Compute EV directly from strategy parameters
+- Evaluate many strategies simultaneously
+
+<Checkpoint
+  id="checkpoint-1"
+  title="Checkpoint: Expected Value Engine"
+  requiredBlockIds={["text-1-1", "quiz-1-1", "code-1-1a", "code-1-1b", "code-1-1c"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+>
+
+**Key insight:** Expected value per trade is the ONLY metric that determines long-run profitability. Positive EV = profitable. Negative EV = not profitable.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-1" lockedTitle="Section 2: Break-Even and Sensitivity">
+
+## Section 2: Break-Even and Sensitivity
+
+A strategy with positive EV can become negative with small parameter changes. Understanding **break-even points** tells you how robust your edge is.
+
+<TextResponse
+  id="text-2-1"
+  question="Which parameter do you think a strategy's profitability is most sensitive to: win probability, win amount, loss amount, or cost? Why might the answer depend on the specific strategy?"
+  placeholder="Consider which parameters have the largest effect..."
+  maxLength={400}
+  label="Prediction"
+  referenceAnswer="It depends on the specific strategy! A low-probability, high-payoff strategy is very sensitive to win probability (small changes matter a lot). A high-frequency strategy is very sensitive to costs (they add up fast). There is no universal answer, you must analyze each strategy individually."
+/>
+
+<Quiz
+  id="quiz-2-1"
+  question="If a strategy has positive EV, which single change would MOST LIKELY turn it negative?"
+  options={[
+    "Slightly higher win rate",
+    "Slightly lower transaction costs",
+    "It depends on the specific strategy parameters",
+    "Doubling the number of trades"
+  ]}
+  correct={2}
+  explanation="The impact of any parameter change depends on the current values. A strategy with EV barely above zero might flip negative from a tiny cost increase. A strategy with high EV might survive significant parameter deterioration. You must analyze each strategy specifically."
+/>
+
+### Exercise 1: Find Break-Even Win Probability
+
+Given win/loss amounts and costs, what win probability do you need to break even?
+
+<CodeExercise
+  id="code-2-1a"
+  starterCode={`import numpy as np
+
+def break_even_prob(win_amount, loss_amount, cost):
+    """
+    Calculate the minimum win probability for EV = 0.
+
+    At break-even:
+        p * (win - cost) + (1-p) * (-loss - cost) = 0
+        p * win - p * cost - loss - cost + p * loss + p * cost = 0
+        p * (win + loss) = loss + cost
+        p = (loss + cost) / (win + loss)
+
+    Args:
+        win_amount: Amount gained on a win
+        loss_amount: Amount lost on a loss
+        cost: Cost per trade
+
+    Returns:
+        Break-even win probability
+
+    Example:
+        >>> break_even_prob(100, 80, 5)
+        0.4722...
+    """
+    # TODO: Return break-even probability
+    pass`}
+  solution={`import numpy as np
+
+def break_even_prob(win_amount, loss_amount, cost):
+    """
+    Calculate the minimum win probability for EV = 0.
+    """
+    return (loss_amount + cost) / (win_amount + loss_amount)`}
+  hint="Set EV = 0 and solve for p_win. Formula: p = (loss + cost) / (win + loss)"
+  tests={[
+    {
+      "input": [100, 80, 5],
+      "expected": 0.4722,
+      "hidden": false,
+      "description": "Standard strategy break-even",
+      "tolerance": 0.001
+    },
+    {
+      "input": [50, 50, 0],
+      "expected": 0.5,
+      "hidden": false,
+      "description": "Fair game: need 50% to break even",
+      "tolerance": 0.001
+    },
+    {
+      "input": [100, 100, 10],
+      "expected": 0.55,
+      "hidden": true,
+      "description": "Costs raise the bar",
+      "tolerance": 0.001
+    }
+  ]}
+/>
+
+### Exercise 2: Find Break-Even Win Amount
+
+Given win probability, loss amount, and cost, how big do wins need to be?
+
+<CodeExercise
+  id="code-2-1b"
+  starterCode={`import numpy as np
+
+def break_even_win(p_win, loss_amount, cost):
+    """
+    Calculate the minimum win amount for EV = 0.
+
+    At break-even:
+        p * win - (1-p) * loss - cost = 0
+        p * win = (1-p) * loss + cost
+        win = ((1-p) * loss + cost) / p
+
+    Args:
+        p_win: Probability of winning
+        loss_amount: Amount lost on a loss
+        cost: Cost per trade
+
+    Returns:
+        Break-even win amount
+
+    Example:
+        >>> break_even_win(0.6, 80, 5)
+        61.67...
+    """
+    # TODO: Return break-even win amount
+    pass`}
+  solution={`import numpy as np
+
+def break_even_win(p_win, loss_amount, cost):
+    """
+    Calculate the minimum win amount for EV = 0.
+    """
+    return ((1 - p_win) * loss_amount + cost) / p_win`}
+  hint="Set EV = 0 and solve for win. Formula: win = ((1-p) * loss + cost) / p"
+  tests={[
+    {
+      "input": [0.6, 80, 5],
+      "expected": 61.67,
+      "hidden": false,
+      "description": "60% win rate strategy",
+      "tolerance": 0.01
+    },
+    {
+      "input": [0.5, 100, 0],
+      "expected": 100.0,
+      "hidden": false,
+      "description": "50/50: wins must equal losses",
+      "tolerance": 0.01
+    },
+    {
+      "input": [0.3, 50, 10],
+      "expected": 150.0,
+      "hidden": true,
+      "description": "Low win rate needs big wins",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 3: Compute Margin Above Break-Even
+
+How far above break-even is a strategy? This tells you how much room for error you have.
+
+<CodeExercise
+  id="code-2-1c"
+  starterCode={`import numpy as np
+
+def margin_above_breakeven(params):
+    """
+    Compute how far above break-even the strategy is.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+
+    Returns:
+        Tuple: (break_even_p, actual_p, margin)
+        - break_even_p: win probability needed to break even
+        - actual_p: actual win probability
+        - margin: actual_p - break_even_p (positive = profitable)
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> be, actual, margin = margin_above_breakeven(params)
+        >>> margin
+        0.1278  # 12.78% margin above break-even
+    """
+    # TODO: Compute break-even probability and margin
+    pass`}
+  solution={`import numpy as np
+
+def margin_above_breakeven(params):
+    """
+    Compute how far above break-even the strategy is.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    break_even_p = (loss_amount + cost) / (win_amount + loss_amount)
+    margin = p_win - break_even_p
+
+    return break_even_p, p_win, margin`}
+  hint="Use the break-even formula, then subtract from actual p_win."
+  tests={[
+    {
+      "input": ["np.array([0.6, 100, 80, 5])"],
+      "expected": [0.4722, 0.6, 0.1278],
+      "hidden": false,
+      "description": "Positive margin",
+      "tolerance": 0.001
+    },
+    {
+      "input": ["np.array([0.5, 100, 100, 10])"],
+      "expected": [0.55, 0.5, -0.05],
+      "hidden": false,
+      "description": "Negative margin - unprofitable",
+      "tolerance": 0.001
+    }
+  ]}
+/>
+
+<Checkpoint
+  id="checkpoint-2"
+  title="Checkpoint: Break-Even Analysis"
+  requiredBlockIds={["text-2-1", "quiz-2-1", "code-2-1a", "code-2-1b", "code-2-1c"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+>
+
+**Key insight:** Break-even points define the boundary between profitable and unprofitable. Margin tells you how close you are to that boundary.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-2" lockedTitle="Section 3: Build a Trade Simulator">
+
+## Section 3: Build a Trade Simulator
+
+Expected value is the truth, it determines profitability. But simulation builds intuition: you see how the path fluctuates, how streaks happen, how long-run averages emerge from noisy short-run behavior.
+
+<TextResponse
+  id="text-3-1"
+  question="If EV is +$5 per trade, what should happen over 1,000 trades? Over 10 trades? Why might the outcomes differ?"
+  placeholder="Think about averages and variability..."
+  maxLength={400}
+  label="Prediction"
+  referenceAnswer="Over 1,000 trades, cumulative P&L should be around $5,000 (close to 1000 times $5). Over 10 trades, the outcome is highly variable, you might see anywhere from -$200 to +$300 due to small sample randomness. The law of large numbers only applies when N is large."
+/>
+
+<Quiz
+  id="quiz-3-1"
+  question="If a strategy has positive expected value, which statement is TRUE?"
+  options={[
+    "Every sequence of 100 trades will be profitable",
+    "You can still have long losing streaks, but will profit in the long run",
+    "The probability of a losing trade approaches zero as you trade more",
+    "You are guaranteed to never have a drawdown exceeding 10%"
+  ]}
+  correct={1}
+  explanation="Positive EV means you will profit in expectation over many trades, but variance creates streaks. Even with 60% win rate, you can easily have 5+ losses in a row. That is normal statistical fluctuation, not bad luck."
+/>
+
+### Generating Random Numbers in NumPy
+
+To simulate trades, we need to generate random outcomes. NumPy provides `np.random.default_rng()` which creates a random number generator:
+
+```python
+rng = np.random.default_rng(seed=42)  # seed for reproducibility
+random_values = rng.random(10)        # 10 random floats between 0 and 1
+```
+
+To simulate a coin flip with probability `p` of heads:
+- Generate a random number between 0 and 1
+- If it's less than `p`, call it heads (1); otherwise tails (0)
+
+```python
+p = 0.6  # 60% chance of heads
+outcomes = (rng.random(100) < p).astype(int)  # 100 flips
+```
+
+This works because `rng.random()` returns values uniformly distributed in [0, 1). About 60% of those values will be less than 0.6.
+
+### Exercise 1: Generate Random Trade Outcomes
+
+Simulate random trade outcomes based on win probability.
+
+<CodeExercise
+  id="code-3-1a"
+  starterCode={`import numpy as np
+
+def simulate_outcomes(p_win, n_trades, seed=None):
+    """
+    Generate random trade outcomes.
+
+    Args:
+        p_win: Probability of winning each trade
+        n_trades: Number of trades to simulate
+        seed: Random seed for reproducibility
+
+    Returns:
+        numpy array of outcomes (1 = win, 0 = loss)
+
+    Example:
+        >>> outcomes = simulate_outcomes(0.6, 10, seed=42)
+        >>> outcomes
+        array([1, 1, 0, 1, 1, 0, 1, 0, 1, 1])
+    """
+    # TODO: Generate random outcomes
+    pass`}
+  solution={`import numpy as np
+
+def simulate_outcomes(p_win, n_trades, seed=None):
+    """
+    Generate random trade outcomes.
+    """
+    rng = np.random.default_rng(seed)
+    random_vals = rng.random(n_trades)
+    outcomes = (random_vals < p_win).astype(int)
+    return outcomes`}
+  hint="Use np.random.default_rng(seed).random(n_trades) to get random values. Compare to p_win to get outcomes."
+  tests={[
+    {
+      "input": [1.0, 5, 42],
+      "expected": [1, 1, 1, 1, 1],
+      "hidden": false,
+      "description": "100% win rate - all wins"
+    },
+    {
+      "input": [0.0, 5, 42],
+      "expected": [0, 0, 0, 0, 0],
+      "hidden": false,
+      "description": "0% win rate - all losses"
+    }
+  ]}
+/>
+
+### Exercise 2: Compute Cumulative P&L Path
+
+Convert trade outcomes to P&L and track cumulative gains.
+
+<CodeExercise
+  id="code-3-1b"
+  starterCode={`import numpy as np
+
+def simulate_pnl_path(params, n_trades, seed=None):
+    """
+    Simulate trades and return cumulative P&L path.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+        n_trades: Number of trades to simulate
+        seed: Random seed for reproducibility
+
+    Returns:
+        Tuple: (outcomes, trade_pnls, cumulative_pnl)
+        - outcomes: array of 0s and 1s
+        - trade_pnls: array of P&L for each trade
+        - cumulative_pnl: array of running total
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> outcomes, pnls, cum_pnl = simulate_pnl_path(params, 10, seed=42)
+        >>> cum_pnl[-1]  # Final P&L
+        175.0
+    """
+    # TODO: Simulate outcomes, compute P&Ls, return cumulative path
+    pass`}
+  solution={`import numpy as np
+
+def simulate_pnl_path(params, n_trades, seed=None):
+    """
+    Simulate trades and return cumulative P&L path.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    rng = np.random.default_rng(seed)
+    outcomes = (rng.random(n_trades) < p_win).astype(int)
+
+    win_pnl = win_amount - cost
+    loss_pnl = -loss_amount - cost
+
+    trade_pnls = np.where(outcomes == 1, win_pnl, loss_pnl)
+    cumulative_pnl = np.cumsum(trade_pnls)
+
+    return outcomes, trade_pnls, cumulative_pnl`}
+  hint="Use np.where(outcomes == 1, win_pnl, loss_pnl) to compute P&Ls. Use np.cumsum for cumulative total."
+  tests={[
+    {
+      "input": ["np.array([1.0, 100, 80, 5])", 5, 42],
+      "expected": [[1, 1, 1, 1, 1], [95, 95, 95, 95, 95], [95, 190, 285, 380, 475]],
+      "hidden": false,
+      "description": "All wins path"
+    },
+    {
+      "input": ["np.array([0.0, 100, 80, 5])", 3, 42],
+      "expected": [[0, 0, 0], [-85, -85, -85], [-85, -170, -255]],
+      "hidden": true,
+      "description": "All losses path"
+    }
+  ]}
+/>
+
+### Exercise 3: Run Multiple Trials
+
+Run many simulations to see the distribution of outcomes.
+
+<CodeExercise
+  id="code-3-1c"
+  starterCode={`import numpy as np
+
+def run_trials(params, n_trades, n_trials, seed=None):
+    """
+    Run multiple simulation trials.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+        n_trades: Number of trades per trial
+        n_trials: Number of independent trials
+        seed: Random seed
+
+    Returns:
+        Tuple: (final_pnls, mean_pnl, theoretical_ev)
+        - final_pnls: array of final P&L from each trial
+        - mean_pnl: average final P&L across trials
+        - theoretical_ev: expected final P&L (EV * n_trades)
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> finals, mean, theory = run_trials(params, 100, 1000, seed=42)
+        >>> abs(mean - theory) < 200  # Should be close
+        True
+    """
+    # TODO: Run n_trials simulations, return statistics
+    pass`}
+  solution={`import numpy as np
+
+def run_trials(params, n_trades, n_trials, seed=None):
+    """
+    Run multiple simulation trials.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    rng = np.random.default_rng(seed)
+
+    outcomes = (rng.random((n_trials, n_trades)) < p_win).astype(int)
+
+    win_pnl = win_amount - cost
+    loss_pnl = -loss_amount - cost
+
+    trade_pnls = np.where(outcomes == 1, win_pnl, loss_pnl)
+    final_pnls = np.sum(trade_pnls, axis=1)
+
+    mean_pnl = np.mean(final_pnls)
+    ev_per_trade = p_win * win_amount - (1 - p_win) * loss_amount - cost
+    theoretical_ev = ev_per_trade * n_trades
+
+    return final_pnls, mean_pnl, theoretical_ev`}
+  hint="Generate a (n_trials x n_trades) matrix of outcomes. Sum across axis=1 for final P&Ls."
+  tests={[
+    {
+      "input": ["np.array([1.0, 100, 80, 5])", 10, 5, 42],
+      "expected": [[950, 950, 950, 950, 950], 950.0, 950.0],
+      "hidden": false,
+      "description": "Certain wins - mean equals theory"
+    }
+  ]}
+/>
+
+<Checkpoint
+  id="checkpoint-3"
+  title="Checkpoint: Trade Simulation"
+  requiredBlockIds={["text-3-1", "quiz-3-1", "code-3-1a", "code-3-1b", "code-3-1c"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to continue."
+>
+
+**Key insight:** Simulation builds intuition but EV is the authority. If simulated mean differs from theoretical EV, you have a bug.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-3" lockedTitle="Section 4: Stress Testing">
+
+## Section 4: Stress Testing
+
+Your strategy has positive expected value. Congratulations, on paper. But paper ignores reality.
+
+**Stress testing** asks: does your edge survive when things go wrong? Real markets have frictions, surprises, and costs that your simple model doesn't capture. A strategy that looks profitable in theory can be destroyed by real-world conditions.
+
+### Why Stress Test?
+
+The expected value we computed assumes:
+- You always execute at the exact price you want
+- Losses never exceed your modeled amount
+- Your win probability is exactly what you estimated
+
+None of these are true. Stress testing adjusts your EV calculation to account for realistic degradation.
+
+### Friction 1: Slippage
+
+**Slippage** is the difference between the price you expect and the price you actually get. You want to buy at \$100, but by the time your order executes, the price is \$100.15. That's \$0.15 of slippage.
+
+Slippage happens because:
+- Markets move while your order is being processed
+- Large orders push prices against you
+- Low liquidity means worse execution
+
+**How to model it:** Slippage is an additional cost on every trade. If average slippage is \$2 per trade, subtract \$2 from your expected value.
+
+$$\text{EV}_{\text{adjusted}} = \text{EV}_{\text{base}} - \text{avg\_slippage}$$
+
+### Friction 2: Tail Risk
+
+**Tail risk** refers to rare but catastrophic events that your basic model ignores. Your strategy assumes losses are capped at \$80, but what if a flash crash causes a \$500 loss? What if it happens 2% of the time?
+
+These "black swan" events can wipe out months of gains in a single trade.
+
+**How to model it:** Add a third outcome to your probability model:
+- With probability $p_{\text{win}} \times (1 - p_{\text{tail}})$: normal win
+- With probability $(1 - p_{\text{win}}) \times (1 - p_{\text{tail}})$: normal loss
+- With probability $p_{\text{tail}}$: catastrophic tail loss
+
+<Quiz
+  id="quiz-4-1"
+  question="Which of the following can completely destroy a theoretically profitable strategy?"
+  options={[
+    "Only small consistent costs (like commissions)",
+    "Only rare large losses (like flash crashes)",
+    "Only slightly lower win rates than expected",
+    "All of the above can be fatal"
+  ]}
+  correct={3}
+  explanation="Any of these can destroy a strategy. Small costs add up over many trades. Rare large losses can wipe out months of gains. A win rate drop from 55% to 50% can flip EV from positive to negative. Real-world edge is fragile."
+/>
+
+### Exercise 1: Add Slippage to Expected Value
+
+Now let's implement slippage adjustment. Since slippage is a cost on every trade, we simply subtract it from the base EV.
+
+<CodeExercise
+  id="code-4-1a"
+  starterCode={`import numpy as np
+
+def ev_with_slippage(params, avg_slippage):
+    """
+    Compute EV after accounting for slippage.
+
+    Slippage is an additional cost per trade.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+        avg_slippage: Average slippage per trade
+
+    Returns:
+        Tuple: (base_ev, adjusted_ev, slippage_impact)
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> base, adj, impact = ev_with_slippage(params, 2.0)
+        >>> impact
+        -2.0
+    """
+    # TODO: Compute base EV and adjusted EV
+    pass`}
+  solution={`import numpy as np
+
+def ev_with_slippage(params, avg_slippage):
+    """
+    Compute EV after accounting for slippage.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    base_ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+    adjusted_ev = base_ev - avg_slippage
+    slippage_impact = -avg_slippage
+
+    return base_ev, adjusted_ev, slippage_impact`}
+  hint="Slippage just subtracts from EV. It is an additional cost on every trade."
+  tests={[
+    {
+      "input": ["np.array([0.6, 100, 80, 5])", 2.0],
+      "expected": [23.0, 21.0, -2.0],
+      "hidden": false,
+      "description": "Slippage reduces EV",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.5, 50, 50, 0])", 5.0],
+      "expected": [0.0, -5.0, -5.0],
+      "hidden": false,
+      "description": "Slippage destroys fair game",
+      "tolerance": 0.01
+    }
+  ]}
+/>
+
+### Exercise 2: Add Tail Risk
+
+Tail risk is trickier to model than slippage. We need to modify our probability distribution to include a third outcome: the catastrophic loss.
+
+The key insight: when a tail event occurs, it *replaces* what would have been a normal win or loss. So we scale down the original probabilities by $(1 - p_{\text{tail}})$ to make room for the tail event:
+
+$$\text{EV}_{\text{tail}} = p_{\text{win}}(1-p_{\text{tail}})(\text{win} - \text{cost}) + (1-p_{\text{win}})(1-p_{\text{tail}})(-\text{loss} - \text{cost}) + p_{\text{tail}}(-\text{tail\_loss} - \text{cost})$$
+
+<CodeExercise
+  id="code-4-1b"
+  starterCode={`import numpy as np
+
+def ev_with_tail_risk(params, tail_prob, tail_loss):
+    """
+    Compute EV accounting for rare large losses.
+
+    The probability model becomes:
+    - p_win * (1 - tail_prob): normal win
+    - (1 - p_win) * (1 - tail_prob): normal loss
+    - tail_prob: catastrophic loss
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+        tail_prob: Probability of tail event (e.g., 0.02 for 2%)
+        tail_loss: Size of tail loss
+
+    Returns:
+        Tuple: (base_ev, adjusted_ev, tail_impact)
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> base, adj, impact = ev_with_tail_risk(params, 0.02, 500)
+        >>> impact < 0  # Tail risk hurts
+        True
+    """
+    # TODO: Compute EV with three outcomes
+    pass`}
+  solution={`import numpy as np
+
+def ev_with_tail_risk(params, tail_prob, tail_loss):
+    """
+    Compute EV accounting for rare large losses.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    base_ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+
+    remaining = 1 - tail_prob
+    adj_p_win = p_win * remaining
+    adj_p_loss = (1 - p_win) * remaining
+
+    adjusted_ev = (adj_p_win * (win_amount - cost)
+                   + adj_p_loss * (-loss_amount - cost)
+                   + tail_prob * (-tail_loss - cost))
+
+    tail_impact = adjusted_ev - base_ev
+
+    return base_ev, adjusted_ev, tail_impact`}
+  hint="Rescale win/loss probabilities by (1 - tail_prob), then add the tail outcome."
+  tests={[
+    {
+      "input": ["np.array([0.6, 100, 80, 5])", 0.0, 500],
+      "expected": [23.0, 23.0, 0.0],
+      "hidden": false,
+      "description": "No tail risk - no change",
+      "tolerance": 0.01
+    },
+    {
+      "input": ["np.array([0.6, 100, 80, 5])", 0.02, 500],
+      "expected": [23.0, 12.44, -10.56],
+      "hidden": false,
+      "description": "2% tail risk hurts significantly",
+      "tolerance": 0.1
+    }
+  ]}
+/>
+
+### Exercise 3: Full Stress Test
+
+Now we combine both frictions into a single stress test. The process:
+
+1. Start with base EV
+2. Apply tail risk adjustment (modify probability distribution)
+3. Apply slippage (subtract from result)
+4. Check if the fully stressed EV is still positive
+
+A strategy **survives** stress testing if its EV remains positive after all adjustments. If stressed EV ≤ 0, the strategy fails, do not trade it.
+
+<CodeExercise
+  id="code-4-1c"
+  starterCode={`import numpy as np
+
+def stress_test(params, avg_slippage, tail_prob, tail_loss):
+    """
+    Run full stress test on a strategy.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+        avg_slippage: Average slippage per trade
+        tail_prob: Probability of tail event
+        tail_loss: Size of tail loss
+
+    Returns:
+        Tuple: (base_ev, stressed_ev, survives)
+        - survives: True if stressed_ev > 0
+
+    Example:
+        >>> params = np.array([0.6, 100, 80, 5])
+        >>> base, stressed, survives = stress_test(params, 2, 0.02, 500)
+        >>> survives
+        True or False
+    """
+    # TODO: Compute fully stressed EV and determine survival
+    pass`}
+  solution={`import numpy as np
+
+def stress_test(params, avg_slippage, tail_prob, tail_loss):
+    """
+    Run full stress test on a strategy.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    base_ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+
+    remaining = 1 - tail_prob
+    adj_p_win = p_win * remaining
+    adj_p_loss = (1 - p_win) * remaining
+
+    ev_with_tail = (adj_p_win * (win_amount - cost)
+                    + adj_p_loss * (-loss_amount - cost)
+                    + tail_prob * (-tail_loss - cost))
+
+    stressed_ev = ev_with_tail - avg_slippage
+    survives = 1 if stressed_ev > 0 else 0
+
+    return base_ev, stressed_ev, survives`}
+  hint="First apply tail risk, then subtract slippage. Survives if final EV > 0."
+  tests={[
+    {
+      "input": ["np.array([0.7, 150, 80, 5])", 2, 0.01, 300],
+      "expected": [76.0, 70.19, 1],
+      "hidden": false,
+      "description": "Strong strategy survives",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([0.55, 100, 100, 10])", 3, 0.03, 500],
+      "expected": [0.0, -18.3, 0],
+      "hidden": true,
+      "description": "Marginal strategy fails",
+      "tolerance": 0.5
+    }
+  ]}
+/>
+
+<Checkpoint
+  id="checkpoint-4"
+  title="Checkpoint: Stress Testing"
+  requiredBlockIds={["quiz-4-1", "code-4-1a", "code-4-1b", "code-4-1c"]}
+  minRequired={3}
+  lockedMessage="Complete at least 3 of the 4 tasks above to continue."
+>
+
+**Key insight:** A strategy must survive stress testing, not just look good in ideal conditions.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+<GatedSection checkpointId="checkpoint-4" lockedTitle="Section 5: Final Decision">
+
+## Section 5: Final Decision
+
+You have all the tools. Now make the call: **TRADE or DO NOT TRADE**.
+
+<Quiz
+  id="quiz-5-1"
+  question="What is the correct decision rule for whether to trade a strategy?"
+  options={[
+    "Trade if win rate exceeds 50% because winning more often than losing guarantees profits",
+    "Trade if expected value per trade is positive after all costs and stress tests",
+    "Trade if historical backtests show positive returns over a sufficiently long period",
+    "Trade if the largest simulated drawdown stays within your maximum risk tolerance"
+  ]}
+  correct={1}
+  explanation="The decision rule is simple: positive expected value after ALL costs and risks means trade; negative means do not trade. Win rate, backtests, and drawdowns are inputs to this calculation, not the decision itself."
+/>
+
+<TextResponse
+  id="text-5-1"
+  question="You have a strategy with positive EV but marginal after stress testing. What single parameter change would you test first to improve the edge, and why?"
+  placeholder="Think about sensitivity and practical control..."
+  maxLength={400}
+  label="Reflection"
+  referenceAnswer="I would focus on reducing transaction costs first. Costs are (1) certain on every trade, (2) often negotiable with brokers, and (3) compound over many trades. Unlike win rate or payoffs which depend on market conditions, costs are under your control."
+/>
+
+### Exercise 1: Make the Trading Decision
+
+Create a function that outputs the final verdict.
+
+<CodeExercise
+  id="code-5-1a"
+  starterCode={`import numpy as np
+
+def trading_decision(params, avg_slippage, tail_prob, tail_loss):
+    """
+    Make final trading decision with full analysis.
+
+    Args:
+        params: numpy array [p_win, win_amount, loss_amount, cost]
+        avg_slippage: Average slippage per trade
+        tail_prob: Probability of tail event
+        tail_loss: Size of tail loss
+
+    Returns:
+        Tuple: (verdict, base_ev, stressed_ev, margin)
+        - verdict: 1 for TRADE, 0 for DO NOT TRADE
+        - base_ev: EV without stress
+        - stressed_ev: EV with all stress factors
+        - margin: how far above break-even
+    """
+    # TODO: Compute all metrics and return verdict
+    pass`}
+  solution={`import numpy as np
+
+def trading_decision(params, avg_slippage, tail_prob, tail_loss):
+    """
+    Make final trading decision with full analysis.
+    """
+    p_win = params[0]
+    win_amount = params[1]
+    loss_amount = params[2]
+    cost = params[3]
+
+    base_ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+
+    remaining = 1 - tail_prob
+    adj_p_win = p_win * remaining
+    adj_p_loss = (1 - p_win) * remaining
+
+    ev_with_tail = (adj_p_win * (win_amount - cost)
+                    + adj_p_loss * (-loss_amount - cost)
+                    + tail_prob * (-tail_loss - cost))
+
+    stressed_ev = ev_with_tail - avg_slippage
+
+    break_even_p = (loss_amount + cost) / (win_amount + loss_amount)
+    margin = p_win - break_even_p
+
+    verdict = 1 if stressed_ev > 0 else 0
+
+    return verdict, base_ev, stressed_ev, margin`}
+  hint="Combine stress test with break-even margin. Verdict is 1 if stressed EV > 0."
+  tests={[
+    {
+      "input": ["np.array([0.7, 150, 80, 5])", 2, 0.01, 300],
+      "expected": [1, 76.0, 70.19, 0.3304],
+      "hidden": false,
+      "description": "Strong strategy: TRADE",
+      "tolerance": 0.1
+    },
+    {
+      "input": ["np.array([0.5, 50, 50, 5])", 2, 0.02, 200],
+      "expected": [0, -5.0, -11.0, -0.05],
+      "hidden": false,
+      "description": "Weak strategy: DO NOT TRADE",
+      "tolerance": 0.5
+    }
+  ]}
+/>
+
+### Exercise 2: Run Complete Pipeline
+
+<CodeExercise
+  id="code-5-2"
+  starterCode={`import numpy as np
+
+# ============================================================
+# COMPLETE STRATEGY EVALUATION PIPELINE
+# ============================================================
+
+# Define strategy to evaluate
+params = np.array([0.55, 120, 100, 8])
+
+# Stress parameters
+avg_slippage = 1.7
+tail_prob = 0.02
+tail_loss = 400
+
+# ============================================================
+# STEP 1: Basic Analysis
+# ============================================================
+
+p_win = params[0]
+win_amount = params[1]
+loss_amount = params[2]
+cost = params[3]
+
+base_ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+break_even_p = (loss_amount + cost) / (win_amount + loss_amount)
+margin = p_win - break_even_p
+
+print("=" * 50)
+print("STRATEGY EVALUATION REPORT")
+print("=" * 50)
+print(f"Win probability:    {p_win*100:.1f}%")
+print(f"Win amount:         {win_amount}")
+print(f"Loss amount:        {loss_amount}")
+print(f"Cost per trade:     {cost}")
+print(f"Base EV per trade:  {base_ev:.2f}")
+print(f"Break-even prob:    {break_even_p*100:.1f}%")
+print(f"Margin above break: {margin*100:.1f}%")
+
+# ============================================================
+# STEP 2: Stress Testing
+# ============================================================
+
+remaining = 1 - tail_prob
+adj_p_win = p_win * remaining
+adj_p_loss = (1 - p_win) * remaining
+
+ev_with_tail = (adj_p_win * (win_amount - cost)
+                + adj_p_loss * (-loss_amount - cost)
+                + tail_prob * (-tail_loss - cost))
+
+stressed_ev = ev_with_tail - avg_slippage
+
+print(f"Slippage per trade: {avg_slippage}")
+print(f"Tail probability:   {tail_prob*100:.1f}%")
+print(f"Tail loss:          {tail_loss}")
+print(f"Stressed EV:        {stressed_ev:.2f}")
+
+# ============================================================
+# STEP 3: Monte Carlo Verification
+# ============================================================
+
+np.random.seed(42)
+n_trades = 1000
+n_trials = 500
+
+outcomes = np.random.random((n_trials, n_trades)) < p_win
+win_pnl = win_amount - cost
+loss_pnl = -loss_amount - cost
+trade_pnls = np.where(outcomes, win_pnl, loss_pnl)
+final_pnls = np.sum(trade_pnls, axis=1)
+
+print(f"Theoretical total:  {base_ev * n_trades:.0f}")
+print(f"Simulated mean:     {np.mean(final_pnls):.0f}")
+print(f"Simulated std:      {np.std(final_pnls):.0f}")
+print(f"% profitable runs:  {np.mean(final_pnls > 0)*100:.1f}%")
+
+# ============================================================
+# STEP 4: Final Verdict
+# ============================================================
+
+print("=" * 50)
+if stressed_ev > 0:
+    print("VERDICT: TRADE")
+    print(f"Positive EV of {stressed_ev:.2f} per trade after stress")
+else:
+    print("VERDICT: DO NOT TRADE")
+    print(f"Negative EV of {stressed_ev:.2f} per trade under stress")
+print("=" * 50)`}
+  solution={`import numpy as np
+
+# ============================================================
+# COMPLETE STRATEGY EVALUATION PIPELINE
+# ============================================================
+
+# Define strategy to evaluate
+params = np.array([0.55, 120, 100, 8])
+
+# Stress parameters
+avg_slippage = 1.7
+tail_prob = 0.02
+tail_loss = 400
+
+# ============================================================
+# STEP 1: Basic Analysis
+# ============================================================
+
+p_win = params[0]
+win_amount = params[1]
+loss_amount = params[2]
+cost = params[3]
+
+base_ev = p_win * win_amount - (1 - p_win) * loss_amount - cost
+break_even_p = (loss_amount + cost) / (win_amount + loss_amount)
+margin = p_win - break_even_p
+
+print("=" * 50)
+print("STRATEGY EVALUATION REPORT")
+print("=" * 50)
+print(f"Win probability:    {p_win*100:.1f}%")
+print(f"Win amount:         {win_amount}")
+print(f"Loss amount:        {loss_amount}")
+print(f"Cost per trade:     {cost}")
+print(f"Base EV per trade:  {base_ev:.2f}")
+print(f"Break-even prob:    {break_even_p*100:.1f}%")
+print(f"Margin above break: {margin*100:.1f}%")
+
+# ============================================================
+# STEP 2: Stress Testing
+# ============================================================
+
+remaining = 1 - tail_prob
+adj_p_win = p_win * remaining
+adj_p_loss = (1 - p_win) * remaining
+
+ev_with_tail = (adj_p_win * (win_amount - cost)
+                + adj_p_loss * (-loss_amount - cost)
+                + tail_prob * (-tail_loss - cost))
+
+stressed_ev = ev_with_tail - avg_slippage
+
+print(f"Slippage per trade: {avg_slippage}")
+print(f"Tail probability:   {tail_prob*100:.1f}%")
+print(f"Tail loss:          {tail_loss}")
+print(f"Stressed EV:        {stressed_ev:.2f}")
+
+# ============================================================
+# STEP 3: Monte Carlo Verification
+# ============================================================
+
+np.random.seed(42)
+n_trades = 1000
+n_trials = 500
+
+outcomes = np.random.random((n_trials, n_trades)) < p_win
+win_pnl = win_amount - cost
+loss_pnl = -loss_amount - cost
+trade_pnls = np.where(outcomes, win_pnl, loss_pnl)
+final_pnls = np.sum(trade_pnls, axis=1)
+
+print(f"Theoretical total:  {base_ev * n_trades:.0f}")
+print(f"Simulated mean:     {np.mean(final_pnls):.0f}")
+print(f"Simulated std:      {np.std(final_pnls):.0f}")
+print(f"% profitable runs:  {np.mean(final_pnls > 0)*100:.1f}%")
+
+# ============================================================
+# STEP 4: Final Verdict
+# ============================================================
+
+print("=" * 50)
+if stressed_ev > 0:
+    print("VERDICT: TRADE")
+    print(f"Positive EV of {stressed_ev:.2f} per trade after stress")
+else:
+    print("VERDICT: DO NOT TRADE")
+    print(f"Negative EV of {stressed_ev:.2f} per trade under stress")
+print("=" * 50)`}
+  hint="Click Run to execute the complete pipeline."
+  tests={[]}
+/>
+
+<TextResponse
+  id="synthesis-final"
+  question="You have built a complete strategy evaluation toolkit. In plain language (no formulas), explain: (1) What determines whether a strategy is profitable? (2) How do you know if that profitability is robust? (3) What would you check before deploying real money?"
+  placeholder="Write 4-6 sentences covering all three points..."
+  maxLength={1000}
+  label="Final Reflection"
+  isSynthesis={true}
+  referenceAnswer="A strategy is profitable if the average profit per trade is positive, you need to win enough and win big enough to overcome your losses and costs. That profitability is robust if it survives stress tests: slippage, higher costs, rare large losses, and drops in win rate. Before deploying real money, I would verify that (1) simulated results match theoretical expected value, (2) the margin above break-even is comfortable, not razor-thin, (3) I understand which parameters could change in real markets and by how much, and (4) I have a plan for when I hit a losing streak."
+  selfCheck="Explained that average profit per trade determines profitability|Mentioned stress testing for robustness|Listed concrete checks before deploying capital"
+/>
+
+<Checkpoint
+  id="checkpoint-5"
+  title="Checkpoint: Final Decision"
+  requiredBlockIds={["quiz-5-1", "text-5-1", "code-5-1a", "code-5-2", "synthesis-final"]}
+  minRequired={4}
+  lockedMessage="Complete at least 4 of the 5 tasks above to finish the project."
+>
+
+**Key insight:** A quant decision is binary: trade or do not trade. Everything you built serves one purpose: making that decision with confidence.
+
+</Checkpoint>
+
+</GatedSection>
+
+---
+
+## What You Built
+
+Through this project, you created a complete **strategy evaluation toolkit**:
+
+- **Strategy Representation**: Parameters as arrays for efficient computation
+- **Expected Value Engine**: The single number that determines profitability
+- **Break-Even Analysis**: Understanding margins and sensitivity
+- **Trade Simulation**: Monte Carlo verification of theoretical results
+- **Stress Testing**: Survival under slippage and tail risk
+- **Decision Function**: Clear TRADE or DO NOT TRADE verdict
+
+**The One Lesson**: Expected value per trade, positive or negative, is the only thing that determines long-run profitability. Everything else is noise.
+
+<DownloadNotebook
+  notebookPath="/notebooks/strategy-profitability-analysis.ipynb"
+  title="Download Complete Notebook"
+/>

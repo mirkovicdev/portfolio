@@ -46,8 +46,8 @@ const loadedPackages = new Set<string>();
 let initializationPromise: Promise<PyodideInstance> | null = null;
 let globalPyodideInstance: PyodideInstance | null = null;
 
-const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/';
-const DEFAULT_PACKAGES = ['numpy', 'pandas'];
+const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.29.0/full/';
+const DEFAULT_PACKAGES = ['numpy', 'pandas', 'matplotlib', 'scipy', 'cvxpy-base', 'clarabel'];
 
 interface PyodideProviderProps {
   children: ReactNode;
@@ -93,8 +93,8 @@ export function PyodideProvider({ children }: PyodideProviderProps) {
         indexURL: PYODIDE_CDN,
       });
 
-      // Pre-load default packages
-      console.log('[Pyodide] Loading default packages (numpy, pandas)...');
+      // Pre-load default packages (including cvxpy-base and clarabel)
+      console.log('[Pyodide] Loading packages (numpy, pandas, matplotlib, scipy, cvxpy, clarabel)...');
       await instance.loadPackage(DEFAULT_PACKAGES);
       DEFAULT_PACKAGES.forEach((pkg) => loadedPackages.add(pkg));
 

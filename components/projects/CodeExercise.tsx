@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { useProject } from '@/lib/projects/context';
 import { usePyodide } from '@/lib/pyodide';
@@ -25,6 +25,7 @@ import {
   Eye,
   EyeOff,
   Lightbulb,
+  Terminal,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { TestCase } from '@/lib/projects/types';
@@ -62,27 +63,80 @@ export function CodeExercise({
 
   const [code, setCode] = useState(savedCode || starterCode);
   const [running, setRunning] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [allTestsPassed, setAllTestsPassed] = useState(isCompleted);
   const [showSolution, setShowSolution] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [showSolutionDialog, setShowSolutionDialog] = useState(false);
+  const [consoleOutput, setConsoleOutput] = useState<string>('');
+  const [plotImages, setPlotImages] = useState<string[]>([]);
 
   const runTests = async () => {
     if (!pyodide || allTestsPassed) return;
 
     setRunning(true);
     setTestResults([]);
+    setConsoleOutput('');
+    setPlotImages([]);
 
     const results: TestResult[] = [];
     let allPassed = true;
 
     try {
+      // Setup stdout capture and matplotlib handling
+      const setupCode = `
+import sys
+import io
+
+# Capture stdout
+class OutputCapture:
+    def __init__(self):
+        self.outputs = []
+    def write(self, text):
+        self.outputs.append(text)
+    def flush(self):
+        pass
+    def getvalue(self):
+        return ''.join(self.outputs)
+
+_stdout_capture = OutputCapture()
+sys.stdout = _stdout_capture
+
+# Setup matplotlib for image capture
+_plot_images = []
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    _original_show = plt.show
+    def _capture_show(*args, **kwargs):
+        import base64
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=100, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        _plot_images.append(img_base64)
+        buf.close()
+        plt.close('all')
+
+    plt.show = _capture_show
+except ImportError:
+    pass
+`;
+
+      await pyodide.runPythonAsync(setupCode);
 
       // Execute user code
       try {
         await pyodide.runPythonAsync(code);
       } catch (error: any) {
+        // Get any output that was captured before the error
+        const capturedOutput = await pyodide.runPythonAsync('_stdout_capture.getvalue()');
+        setConsoleOutput(capturedOutput || '');
+
         setTestResults([
           {
             passed: false,
@@ -93,6 +147,32 @@ export function CodeExercise({
             error: error.message || String(error),
           },
         ]);
+        setRunning(false);
+        return;
+      }
+
+      // Get captured stdout
+      const capturedOutput = await pyodide.runPythonAsync('_stdout_capture.getvalue()');
+      setConsoleOutput(capturedOutput || '');
+
+      // Get captured plot images
+      const plotImagesJson = await pyodide.runPythonAsync(`
+import json
+json.dumps(_plot_images)
+`);
+      const capturedPlots = JSON.parse(plotImagesJson);
+      setPlotImages(capturedPlots);
+
+      // If no tests, just run the code (run-through exercise)
+      if (tests.length === 0) {
+        setAllTestsPassed(true);
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#26804a', '#2d9659', '#34ac68'],
+        });
+        markBlockCompleted(id, code);
         setRunning(false);
         return;
       }
@@ -125,7 +205,9 @@ import pandas as pd
 import json
 
 def convert_to_json(val):
-    if isinstance(val, (np.integer, np.floating)):
+    if isinstance(val, (bool, np.bool_)):
+        return bool(val)
+    elif isinstance(val, (np.integer, np.floating)):
         return float(val)
     elif isinstance(val, np.ndarray):
         return val.tolist()
@@ -140,7 +222,14 @@ def convert_to_json(val):
           if (Array.isArray(testCase.input)) {
             const args = testCase.input
               .map((inp, idx) => {
-                if (typeof inp === 'string' && (inp.includes('np.') || inp.includes('pd.'))) {
+                // Check if input is Python code (numpy, pandas, dict, list, etc.)
+                if (typeof inp === 'string' && (
+                  inp.includes('np.') ||
+                  inp.includes('pd.') ||
+                  inp.startsWith('dict(') ||
+                  inp.startsWith('[') ||
+                  inp.startsWith('{')
+                )) {
                   return `arg_${idx} = ${inp}`;
                 } else {
                   return `arg_${idx} = ${JSON.stringify(inp)}`;
@@ -157,10 +246,19 @@ def convert_to_json(val):
             testCode += `result = ${functionName}(${JSON.stringify(testCase.input)})\n`;
           }
 
-          testCode += `
+          // If outputExpression is provided, evaluate it to extract specific value from result
+          if (testCase.outputExpression) {
+            testCode += `
+_extracted = ${testCase.outputExpression}
+converted_result = convert_to_json(_extracted)
+json.dumps(converted_result)
+`;
+          } else {
+            testCode += `
 converted_result = convert_to_json(result)
 json.dumps(converted_result)
 `;
+          }
 
           const resultJson = await pyodide.runPythonAsync(testCode);
           const result = JSON.parse(resultJson);
@@ -254,6 +352,8 @@ json.dumps(converted_result)
     setTestResults([]);
     setAllTestsPassed(false);
     setShowSolution(false);
+    setConsoleOutput('');
+    setPlotImages([]);
   };
 
   const handleRevealSolution = () => {
@@ -263,12 +363,17 @@ json.dumps(converted_result)
 
   const loadSolution = () => {
     setCode(solution);
-    setShowSolution(true);
+    setShowSolution(false);
+    // Scroll to the code block after a brief delay to allow DOM update
+    setTimeout(() => {
+      containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   return (
     <>
       <div
+        ref={containerRef}
         className={`my-8 bg-white/5 backdrop-blur-sm border rounded-xl p-6 md:p-8 ${
           allTestsPassed ? 'border-green-500/30' : 'border-white/10'
         }`}
@@ -340,7 +445,7 @@ json.dumps(converted_result)
             {running ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running Tests...
+                Running...
               </>
             ) : !pyodideReady ? (
               <>
@@ -350,12 +455,12 @@ json.dumps(converted_result)
             ) : allTestsPassed ? (
               <>
                 <CheckCircle2 className="w-4 h-4 mr-2" />
-                All Tests Passed!
+                Complete!
               </>
             ) : (
               <>
                 <Play className="w-4 h-4 mr-2" />
-                Run Tests
+                Run Code
               </>
             )}
           </Button>
@@ -363,7 +468,7 @@ json.dumps(converted_result)
           <Button
             onClick={resetCode}
             variant="outline"
-            disabled={allTestsPassed}
+            disabled={running}
             className="bg-zinc-900/50 border-phthalo-500/30 text-phthalo-400 hover:bg-phthalo-500/10 hover:border-phthalo-500/50 disabled:opacity-30"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
@@ -391,12 +496,45 @@ json.dumps(converted_result)
           )}
         </div>
 
+        {/* Console Output */}
+        {consoleOutput && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal className="w-4 h-4 text-phthalo-400" />
+              <span className="text-sm font-medium text-zinc-300">Output</span>
+            </div>
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 max-h-96 overflow-auto">
+              <pre className="text-sm text-zinc-300 font-mono whitespace-pre-wrap">{consoleOutput}</pre>
+            </div>
+          </div>
+        )}
+
+        {/* Plot Images */}
+        {plotImages.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium text-zinc-300">Visualizations</span>
+            </div>
+            {plotImages.map((img, idx) => (
+              <div key={idx} className="bg-white rounded-lg p-2 inline-block">
+                <img
+                  src={`data:image/png;base64,${img}`}
+                  alt={`Plot ${idx + 1}`}
+                  className="max-w-full h-auto"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Success Message */}
         {allTestsPassed && (
           <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-3 mb-6">
             <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-green-400">All tests passed!</p>
+              <p className="font-semibold text-green-400">
+                {tests.length === 0 ? 'Code executed successfully!' : 'All tests passed!'}
+              </p>
               <p className="text-sm text-zinc-400">Great job! Block marked as complete.</p>
             </div>
           </div>

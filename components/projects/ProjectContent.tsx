@@ -6,6 +6,7 @@ import { Quiz } from './Quiz';
 import { CodeExercise } from './CodeExercise';
 import { ConceptCheck } from './ConceptCheck';
 import { CodeBlock } from './CodeBlock';
+import { DownloadNotebook } from './DownloadNotebook';
 import { TextResponse } from './TextResponse';
 import { NumericInput } from './NumericInput';
 import { Checkpoint, GatedSection } from './Checkpoint';
@@ -22,6 +23,7 @@ const components = {
   CodeExercise,
   ConceptCheck,
   CodeBlock,
+  DownloadNotebook,
   TextResponse,
   NumericInput,
   Checkpoint,

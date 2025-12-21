@@ -11,6 +11,7 @@ export { Checkpoint, GatedSection } from './Checkpoint';
 
 // Display components (no progress tracking)
 export { CodeBlock } from './CodeBlock';
+export { DownloadNotebook } from './DownloadNotebook';
 export { ProfitVisualization } from './ProfitVisualization';
 export { KellyVisualization } from './KellyVisualization';
 export { SurfaceVisualization } from './SurfaceVisualization';

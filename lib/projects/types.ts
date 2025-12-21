@@ -91,6 +91,7 @@ export interface TestCase {
   hidden: boolean;
   description?: string;
   tolerance?: number; // For floating-point comparisons
+  outputExpression?: string; // Python expression to extract value from result (e.g., "len(result[0])")
 }
 
 // Props for MDX interactive components
