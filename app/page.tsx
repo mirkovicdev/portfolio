@@ -1,463 +1,455 @@
-import Link from "next/link"
-import { ArrowRight, Github, GraduationCap, Linkedin, Mail, Twitter } from "lucide-react"
+'use client'
 
-import { Button } from "@/components/ui/button"
-import { ProjectCard } from "@/components/project-card"
-import { SkillBadge } from "@/components/skill-badge"
-import { Timeline } from "@/components/timeline"
-import { ContactForm } from "@/components/contact-form"
-import { CreativeHero } from "@/components/creative-hero"
-import { FloatingNav } from "@/components/floating-nav"
-import { MouseFollower } from "@/components/mouse-follower"
-import { ScrollProgress } from "@/components/scroll-progress"
-import { SectionHeading } from "@/components/section-heading"
-import { GlassmorphicCard } from "@/components/glassmorphic-card"
-import { GrindSection } from "@/components/grind-section"
-import { KnowledgeBrain } from "@/components/knowledge-brain"
-import { Marquee } from "@/components/magicui/marquee"
-import { ECGProjectCard } from "@/components/ECGProjectCard"
-import { LearnNavbar } from "@/components/learn-navbar"
-import { StorySection } from "@/components/story-section"
+import { useEffect, useState, useCallback, useRef } from 'react'
 
-export default function Portfolio() {
+const lines = [
+  'One year ago my heart failed.',
+  '',
+  'At the same time, I blew up my trading account.',
+  '',
+  'One was medical.',
+  '',
+  'One was my fault.',
+  '',
+  'Both exposed the same thing.',
+  '',
+  'I was operating without control.',
+  '',
+  'After the diagnosis, my heart was misfiring roughly 25% of the time.',
+  '',
+  'The next available cardiology follow-up was months away.',
+  '',
+  'Months.',
+  '',
+  'No continuous monitoring.',
+  '',
+  'No real-time answers.',
+  '',
+  'Just medication and uncertainty.',
+  '',
+  'Everytime I left my house I was in constant fear.',
+  '',
+  'I did not want to wait months to understand what my heart was doing in real time.',
+  '',
+  'So I built the monitoring system myself.',
+  '',
+  'A real-time ECG platform connected to a chest strap.',
+  '',
+  'Live PVC detection.',
+  '',
+  'Continuous arrhythmia burden estimation.',
+  '',
+  'Signal processing pipeline.',
+  '',
+  'Time-series modeling.',
+  '',
+  'Neural network classification.',
+  '',
+  'Workout session tracking.',
+  '',
+  'Alerts when abnormal patterns spike.',
+  '',
+  'I built it because the alternative was guessing for months.',
+  '',
+  'It turned fear into telemetry.',
+  '',
+  'It gave me continuous feedback where the medical system could only give me appointments.',
+  '',
+  'Around the same time, trading exposed a different weakness.',
+  '',
+  'I was not bad at math.',
+  '',
+  'I was bad at structure.',
+  '',
+  'No position sizing discipline.',
+  '',
+  'No probabilistic framework.',
+  '',
+  'No formal constraints.',
+  '',
+  'Just reactions.',
+  '',
+  'Mathematics was the one advantage I actually had.',
+  '',
+  'So I stopped trying to predict.',
+  '',
+  'I started modeling.',
+  '',
+  'Risk first.',
+  '',
+  'Optimization under constraints.',
+  '',
+  'Transaction costs.',
+  '',
+  'Regime shifts.',
+  '',
+  'Execution assumptions.',
+  '',
+  'I implemented cardinality-constrained portfolio optimization.',
+  '',
+  'I reproduced Wasserstein-based market regime clustering from research literature.',
+  '',
+  'I built systematic strategies with explicit slippage and volatility-adjusted exits.',
+  '',
+  'The goal was not to win trades.',
+  '',
+  'It was to remove randomness from my own behavior.',
+  '',
+  'While doing this, I moved onto an accelerated academic path, taking extra courses each semester and completing advanced third-year mathematics early.',
+  '',
+  'Functional analysis.',
+  '',
+  'Abstract algebra.',
+  '',
+  'Complex analysis.',
+  '',
+  'Not to collect courses.',
+  '',
+  'To strengthen the only tool that consistently worked for me.',
+  '',
+  'Then I built distribution.',
+  '',
+  'QuantFrame.',
+  '',
+  'A platform built to train real quantitative thinking, not surface-level trading tactics.',
+  '',
+  'Four thousand users in three weeks.',
+  '',
+  'Built on credibility, not hype.',
+  '',
+  'In parallel, I documented the process publicly.',
+  '',
+  'That archive became a community of over 100,000 people focused on quantitative finance and mathematics.',
+  '',
+  'Tens of millions of views.',
+  '',
+  'Not influence.',
+  '',
+  'Leverage.',
+  '',
+  'The pattern is simple.',
+  '',
+  'When I lose control, I build systems.',
+  '',
+  'When I face uncertainty, I formalize it.',
+  '',
+  'When something takes months to access, I instrument it myself.',
+  '',
+  'This is not a pivot story.',
+  '',
+  'It is a systems response to constraint.',
+]
+
+function Line({
+  children,
+  isTyping = false
+}: {
+  children: React.ReactNode
+  isTyping?: boolean
+}) {
+  const ref = useRef<HTMLParagraphElement>(null)
+  const [opacity, setOpacity] = useState(isTyping ? 1 : 0.15)
+
+  useEffect(() => {
+    if (isTyping) {
+      setOpacity(1)
+      return
+    }
+
+    const updateOpacity = () => {
+      if (!ref.current) return
+
+      const rect = ref.current.getBoundingClientRect()
+      const lineCenter = rect.top + rect.height / 2
+      const viewportCenter = window.innerHeight / 2
+      const distance = Math.abs(lineCenter - viewportCenter)
+      const maxDistance = window.innerHeight / 2
+
+      // Calculate opacity: 1 at center, fading to 0.1 at edges
+      const normalizedDistance = Math.min(distance / maxDistance, 1)
+      const newOpacity = 1 - (normalizedDistance * 0.85)
+
+      setOpacity(Math.max(0.1, newOpacity))
+    }
+
+    updateOpacity()
+    window.addEventListener('scroll', updateOpacity, { passive: true })
+    return () => window.removeEventListener('scroll', updateOpacity)
+  }, [isTyping])
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-zinc-900 to-black text-white overflow-hidden">
-      <MouseFollower />
-      <ScrollProgress />
-      <FloatingNav />
+    <p
+      ref={ref}
+      className="text-base md:text-lg leading-relaxed min-h-[1.75em] transition-opacity duration-150"
+      style={{ opacity }}
+    >
+      {children}
+    </p>
+  )
+}
 
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-32 sm:pt-24">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-phthalo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-          <div className="absolute top-40 right-10 w-72 h-72 bg-phthalo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-phthalo-700 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-        </div>
+export default function Manifesto() {
+  const [currentLineIndex, setCurrentLineIndex] = useState(0)
+  const [currentCharIndex, setCurrentCharIndex] = useState(0)
+  const [completedLines, setCompletedLines] = useState<string[]>([])
+  const [isComplete, setIsComplete] = useState(false)
+  const typingRef = useRef<HTMLParagraphElement>(null)
 
-        <div className="container relative z-10 px-4 sm:px-6">
-          {/* Mobile Layout */}
-          <div className="lg:hidden flex flex-col items-center text-center space-y-8">
-            {/* 1. Name first */}
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-              <span className="block">Hi, I'm</span>
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-phthalo-400 to-phthalo-600">
-                Antonije Mirkovic
-              </span>
-            </h1>
-            
-            {/* 2. Profile image */}
-            <div className="flex justify-center">
-              <CreativeHero />
-            </div>
-            
-            {/* 3. Software engineer badge */}
-            <div className="flex justify-center">
-              <div className="relative px-3 py-1 text-xs font-medium rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-                <span className="relative z-10">Software Engineer & Quantitative Researcher</span>
-                <span className="absolute inset-0 rounded-full bg-gradient-to-r from-phthalo-500/20 to-phthalo-700/20 animate-pulse"></span>
-              </div>
-            </div>
+  const currentLine = lines[currentLineIndex] || ''
+  const displayedCurrentLine = currentLine.slice(0, currentCharIndex)
 
-            {/* 4. Description */}
-            <p className="text-lg text-zinc-400 max-w-[600px]">
-              I blend advanced mathematics, machine learning, and full-stack engineering to turn complex ideas into real-world tools.
-            </p>
-            
-            {/* 5. Buttons */}
-            <div className="flex flex-wrap gap-4 pt-4 justify-center">
-              <Link href="#projects">
-                <Button className="relative overflow-hidden group bg-gradient-to-r from-phthalo-600 to-phthalo-800 border-0">
-                  <span className="relative z-10 flex items-center">
-                    View Projects <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                  <span className="absolute inset-0 bg-gradient-to-r from-phthalo-700 to-phthalo-900 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                </Button>
-              </Link>
-              <Link href="#contact">
-                <Button
-                  variant="outline"
-                  className="border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 bg-transparent"
-                >
-                  Contact Me
-                </Button>
-              </Link>
-            </div>
-            
-            {/* 6. Social icons */}
-            <div className="flex gap-4 justify-center">
-              <Link href="https://github.com/mirkovicdev" target="_blank" rel="noopener noreferrer">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-                >
-                  <Github className="h-5 w-5" />
-                  <span className="sr-only">GitHub</span>
-                </Button>
-              </Link>
-              <Link href="https://www.linkedin.com/in/amirkovic" target="_blank" rel="noopener noreferrer">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-                >
-                  <Linkedin className="h-5 w-5" />
-                  <span className="sr-only">LinkedIn</span>
-                </Button>
-              </Link>
-              <Link href="mailto:contact@mirkovic.dev">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-                >
-                  <Mail className="h-5 w-5" />
-                  <span className="sr-only">Email</span>
-                </Button>
-              </Link>
-            </div>
-          </div>
+  const advanceToNextLine = useCallback(() => {
+    if (currentLineIndex >= lines.length - 1) {
+      setCompletedLines((prev) => [...prev, currentLine])
+      setIsComplete(true)
+      return
+    }
 
-          {/* Desktop Layout */}
-          <div className="hidden lg:grid grid-cols-2 gap-12 items-center">
-            <div className="space-y-6 text-left">
-              <div className="inline-block">
-                <div className="relative px-3 py-1 text-sm font-medium rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
-                  <span className="relative z-10">Software Engineer & Quantitative Researcher</span>
-                  <span className="absolute inset-0 rounded-full bg-gradient-to-r from-phthalo-500/20 to-phthalo-700/20 animate-pulse"></span>
-                </div>
-              </div>
+    setCompletedLines((prev) => [...prev, currentLine])
+    setCurrentLineIndex((prev) => prev + 1)
+    setCurrentCharIndex(0)
+  }, [currentLineIndex, currentLine])
 
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
-                <span className="block">Hi, I'm</span>
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-phthalo-400 to-phthalo-600">
-                  Antonije Mirkovic
-                </span>
-              </h1>
-              <p className="text-xl text-zinc-400 max-w-[600px]">
-                I blend advanced mathematics, machine learning, and full-stack engineering to turn complex ideas into real-world tools.
-              </p>
-              <div className="flex flex-wrap gap-4 pt-4">
-                <Link href="#projects">
-                  <Button className="relative overflow-hidden group bg-gradient-to-r from-phthalo-600 to-phthalo-800 border-0">
-                    <span className="relative z-10 flex items-center">
-                      View Projects <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                    </span>
-                    <span className="absolute inset-0 bg-gradient-to-r from-phthalo-700 to-phthalo-900 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                  </Button>
-                </Link>
-                <Link href="#contact">
-                  <Button
-                    variant="outline"
-                    className="border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 bg-transparent"
-                  >
-                    Contact Me
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <Link href="https://github.com/mirkovicdev" target="_blank" rel="noopener noreferrer">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-                  >
-                    <Github className="h-5 w-5" />
-                    <span className="sr-only">GitHub</span>
-                  </Button>
-                </Link>
-                <Link href="https://www.linkedin.com/in/amirkovic" target="_blank" rel="noopener noreferrer">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-                  >
-                    <Linkedin className="h-5 w-5" />
-                    <span className="sr-only">LinkedIn</span>
-                  </Button>
-                </Link>
-                <Link href="mailto:contact@mirkovic.dev">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-                  >
-                    <Mail className="h-5 w-5" />
-                    <span className="sr-only">Email</span>
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <div className="flex justify-center">
-              <CreativeHero />
-            </div>
-          </div>
-        </div>
+  const skipCurrentLine = useCallback(() => {
+    if (isComplete) return
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce hidden sm:block">
-          <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center items-start p-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse"></div>
-          </div>
-        </div>
-      </section>
+    setCompletedLines((prev) => [...prev, currentLine])
 
-      {/* About Section - Full Story */}
-      <section id="about" className="relative">
-        <StorySection />
-      </section>
+    if (currentLineIndex >= lines.length - 1) {
+      setIsComplete(true)
+    } else {
+      setCurrentLineIndex((prev) => prev + 1)
+      setCurrentCharIndex(0)
+    }
+  }, [currentLine, currentLineIndex, isComplete])
 
-      {/* Projects Section */}
-      <section id="projects" className="py-32 relative">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/4 left-1/3 w-64 h-64 bg-phthalo-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-          <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-yellow-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-        </div>
+  // Typing effect
+  useEffect(() => {
+    if (isComplete) return
+    if (currentCharIndex >= currentLine.length) {
+      const timeout = setTimeout(() => {
+        advanceToNextLine()
+      }, currentLine === '' ? 80 : 300)
+      return () => clearTimeout(timeout)
+    }
 
-        <div className="container relative z-10">
-          <SectionHeading title="Featured Projects" subtitle="Some of my recent work" />
+    const timeout = setTimeout(() => {
+      setCurrentCharIndex((prev) => prev + 1)
+    }, 45)
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-16">
-            <ECGProjectCard
-              title="Polar H10 ECG Arrhythmia Detector"
-              description="A real-time ECG monitoring application that streams live cardiac data from Polar H10 chest straps and performs intelligent arrhythmia detection using advanced signal processing algorithms. Tracks PVC burden, detects patterns like bigeminy and trigeminy, and supports session-based analysis with planned alarm functionality for high-risk events."
-              tags={["Next.js", "TypeScript", "Expo", "Python", "IOS Development"]}
-              image="/p4.png?height=400&width=600"
-              repoUrl="https://github.com/mirkovicdev/Polar-H10-ECG-IOS-app"
-            />
+    return () => clearTimeout(timeout)
+  }, [currentCharIndex, currentLine, advanceToNextLine, isComplete])
 
+  // Keyboard listener for Enter and Space
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        skipCurrentLine()
+      }
+    }
 
-            <ProjectCard
-              title="Cardinality-Constrained Portfolio Optimization"
-              description="This project explores portfolio optimization under cardinality constraints, where the number of assets selected in a portfolio is explicitly limited. Using integer programming, the project demonstrates how adding a cardinality constraint transforms a convex Markowitz optimization problem into a combinatorial, non-convex challenge."
-              tags={["Jupyter", "Python", "NumPy", "CVXPY"]}
-              image="/portfolio.png"
-              repoUrl="https://github.com/mirkovicdev/Cardinality-Constrained-Portfolio-Optimization"
-            />
-            <ProjectCard
-              title="SOLUSDT signal bot"
-              description="A custom algorithmic trading system for Solana using custom signals, enhanced with BTCUSDT price context for confirmation. The strategy includes dynamic stop-loss, ATR-based take-profit, slippage modeling, and realistic funding/fee handling. Backtested on 5-minute candles with live simulation support. It has been deployed live and generated consistent profit in high freq trading environments."
-              tags={["Python", "Pandas", "Matplotlib", "Backtesting", "Crypto", "Quant"]}
-              image="/trade.png"
-            />
-            <ProjectCard
-              title="GoCoachly"
-              description="GoCoachly helps high-ticket coaches scale by automating workflows, surfacing personalized insights, and tracking key metrics. I built forward-deployed engineer systems that let coaches give direct feedback on features and fixes, making the platform evolve faster while staying aligned with their real needs."
-              tags={["Next.js", "Supabase", "Tailwind CSS", "Typescript"]}
-              image="/coaching.png"
-              demoUrl="https://gocoachly.com/"
-              studioUrl="https://kairoventures.com"
-              studioName="Kairo Ventures"
-            />
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [skipCurrentLine])
 
-            <ProjectCard
-              title="BuildThisNow"
-              description="A startup discovery platform that delivers AI-generated business ideas daily. Users can explore, analyze, and expand on startup concepts. I contributed to the frontend architecture, user interaction flow, and content generation logic."
-              tags={["Next.js", "Supabase", "TypeScript", "OpenAI API"]}
-              image="/btn.png"
-              demoUrl="https://buildthisnow.com"
-              studioUrl="https://kairoventures.com"
-              studioName="Kairo Ventures"
-            />
+  // Touch listener for mobile
+  useEffect(() => {
+    const handleTouchStart = () => {
+      if (!isComplete) {
+        skipCurrentLine()
+      }
+    }
 
-            <ProjectCard
-              title="Prompt Fox"
-              description="A web platform and Chrome extension designed to enhance and manage AI prompts more effectively. Prompt Fox allows users to save, organize, and inject optimized prompts directly into AI tools. I contributed to both the frontend and backend, as well as the core Chrome extension logic."
-              tags={["Plasmo", "Supabase", "Next.js", "TypeScript"]}
-              image="/promptfox.png"
-              demoUrl="https://prompt-fox.com"
-              studioUrl="https://kairoventures.com"
-              studioName="Kairo Ventures"
-            />
+    window.addEventListener('touchstart', handleTouchStart, { passive: true })
+    return () => window.removeEventListener('touchstart', handleTouchStart)
+  }, [skipCurrentLine, isComplete])
 
-          </div>
-        </div>
-      </section>
+  // Click listener for PC
+  useEffect(() => {
+    const handleClick = () => {
+      if (!isComplete) {
+        skipCurrentLine()
+      }
+    }
 
-      {/* Grind Section */}
-      <section className="py-32 relative" id="grind">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-phthalo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-          <div className="absolute bottom-1/3 right-1/3 w-64 h-64 bg-phthalo-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-        </div>
+    window.addEventListener('click', handleClick)
+    return () => window.removeEventListener('click', handleClick)
+  }, [skipCurrentLine, isComplete])
 
-        <div className="container relative z-10">
-          <GrindSection />
-        </div>
-      </section>
+  // Keep typing line in view
+  useEffect(() => {
+    if (typingRef.current && !isComplete) {
+      typingRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [completedLines, isComplete])
 
-      {/* Knowledge Brain Section */}
-      {/* <section className="py-32 relative">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-phthalo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-          <div className="absolute bottom-1/3 left-1/3 w-64 h-64 bg-phthalo-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-        </div>
+  return (
+    <main className="min-h-screen bg-black hide-scrollbar overflow-y-auto">
+      <div className="max-w-2xl mx-auto px-6 md:px-12 lg:px-24">
+        {/* Top padding to start typing in center */}
+        <div className="h-[50vh]" />
 
-        <div className="container relative z-10">
-          <KnowledgeBrain />
-        </div>
-      </section> */}
+        {/* Completed lines */}
+        {completedLines.map((line, i) => (
+          <Line key={i}>{line}</Line>
+        ))}
 
-      {/* Experience Section */}
-      <section id="experience" className="py-32 relative">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/3 right-1/3 w-64 h-64 bg-phthalo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-          <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-        </div>
+        {/* Current typing line */}
+        {!isComplete && (
+          <p
+            ref={typingRef}
+            className="text-base md:text-lg leading-relaxed min-h-[1.75em]"
+          >
+            {displayedCurrentLine}
+            <span className="cursor" />
+          </p>
+        )}
 
-        <div className="container relative z-10">
-          <SectionHeading title="Work Experience" subtitle="My professional journey" />
-
-          <div className="mt-16">
-            <Timeline />
-          </div>
-        </div>
-      </section>
-
-      {/* Contact Section */}
-      <section id="contact" className="py-32 relative">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-phthalo-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-          <div className="absolute bottom-1/3 right-1/3 w-64 h-64 bg-phthalo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-        </div>
-
-        <div className="container relative z-10">
-          <SectionHeading title="Get In Touch" subtitle="Let's work together" />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mt-16">
-            <GlassmorphicCard>
-              <h3 className="text-2xl font-bold mb-6">Contact Information</h3>
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
-                    <Mail className="h-5 w-5 text-phthalo-400" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-zinc-500">Email</div>
-                    <div className="font-medium">contact@mirkovic.dev</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
-                    <Linkedin className="h-5 w-5 text-phthalo-400" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-zinc-500">LinkedIn</div>
-                    <div className="font-medium">www.linkedin.com/in/amirkovic</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
-                    <Github className="h-5 w-5 text-phthalo-400" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-zinc-500">GitHub</div>
-                    <div className="font-medium">github.com/mirkovicdev</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-8 border-t border-zinc-800">
-                <h4 className="text-lg font-medium mb-4">Current Status </h4>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"> </div>
-                  <span>Send me a message if you're working on something at the intersection of math, tech, ai and finance!</span>
-                </div>
-              </div>
-            </GlassmorphicCard>
-
-            <ContactForm />
-          </div>
-        </div>
-      </section>
-
-      {/* Learn CTA Section */}
-      <section className="py-32 relative">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-phthalo-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-          <div className="absolute bottom-1/3 right-1/3 w-64 h-64 bg-phthalo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
-        </div>
-
-        <div className="container relative z-10">
-          <SectionHeading title="Learn With Me" subtitle="Quant Finance & Applied Math" />
-
-          <div className="max-w-3xl mx-auto mt-16">
-            <GlassmorphicCard>
-              <div className="text-center space-y-6">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-phthalo-500 to-phthalo-700 flex items-center justify-center">
-                  <GraduationCap className="w-8 h-8 text-white" />
-                </div>
-                
-                <h3 className="text-2xl font-bold">Want to Learn Quant Finance & Math?</h3>
-                
-                <p className="text-lg text-zinc-300">
-                  I'm building courses and mentorship programs on quantitative finance, algorithmic trading, and applied mathematics. Join the waitlist to get notified when they launch.
-                </p>
-
-                <div className="pt-4">
-                  <Link href="/learn">
-                    <Button className="relative overflow-hidden group bg-gradient-to-r from-phthalo-600 to-phthalo-800 border-0 text-lg px-8 py-3">
-                      <span className="relative z-10 flex items-center">
-                        Take the Quiz
-                        <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                      </span>
-                      <span className="absolute inset-0 bg-gradient-to-r from-phthalo-700 to-phthalo-900 opacity-0 group-hover:opacity-100 transition-opacity"></span>
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </GlassmorphicCard>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-zinc-800 py-12">
-        <div className="container flex flex-col md:flex-row justify-between items-center gap-6">
-          <div>
-            <Link href="/" className="font-bold text-xl">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-phthalo-400 to-phthalo-600">
-                Mirkovic
-              </span>
-              <span className="text-white">Dev</span>
-            </Link>
-            <p className="text-sm text-zinc-500 mt-2">
-              © {new Date().getFullYear()} Antonije Mirkovic. All rights reserved.
-            </p>
-          </div>
-          <div className="flex gap-4">
-            <Link href="https://github.com/mirkovicdev" target="_blank" rel="noopener noreferrer">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
+        {/* Scroll indicator */}
+        <div className="h-[50vh] flex items-end justify-center pb-8">
+          {isComplete && (
+            <div className="animate-bounce flex flex-col items-center gap-2 text-white/40">
+              <span className="text-sm tracking-wide">scroll</span>
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <Github className="h-5 w-5" />
-                <span className="sr-only">GitHub</span>
-              </Button>
-            </Link>
-            <Link href="https://www.linkedin.com/in/amirkovic" target="_blank" rel="noopener noreferrer">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-              >
-                <Linkedin className="h-5 w-5" />
-                <span className="sr-only">LinkedIn</span>
-              </Button>
-            </Link>
-            <Link href="mailto:contact@mirkovic.dev">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white"
-              >
-                <Mail className="h-5 w-5" />
-                <span className="sr-only">Email</span>
-              </Button>
-            </Link>
-          </div>
+                <path d="M7 13l5 5 5-5" />
+                <path d="M7 6l5 5 5-5" />
+              </svg>
+            </div>
+          )}
         </div>
-      </footer>
-    </div>
+
+        {/* Portfolio Section */}
+        {isComplete && (
+          <>
+            <section className="py-24 border-t border-white/10">
+              <h2 className="text-sm text-white/40 tracking-wide mb-12">Work</h2>
+
+              <div className="space-y-8">
+                <a
+                  href="https://github.com/mirkovicdev/Polar-H10-ECG-IOS-app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  <h3 className="text-lg md:text-xl text-white/90 group-hover:text-white transition-colors">
+                    Real-time ECG Arrhythmia Detector
+                  </h3>
+                  <p className="text-sm text-white/40 mt-1">
+                    Live PVC detection, neural network classification, workout tracking
+                  </p>
+                </a>
+
+                <a
+                  href="https://github.com/mirkovicdev/Cardinality-Constrained-Portfolio-Optimization"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  <h3 className="text-lg md:text-xl text-white/90 group-hover:text-white transition-colors">
+                    Cardinality-Constrained Portfolio Optimization
+                  </h3>
+                  <p className="text-sm text-white/40 mt-1">
+                    Integer programming, Markowitz optimization under constraints
+                  </p>
+                </a>
+
+                <a
+                  href="https://github.com/mirkovicdev/CLUSTERING-MARKET-REGIMES"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  <h3 className="text-lg md:text-xl text-white/90 group-hover:text-white transition-colors">
+                    Wasserstein K-Means Market Regime Clustering
+                  </h3>
+                  <p className="text-sm text-white/40 mt-1">
+                    Clustering distributions via Wasserstein distance, regime-switching GBM, jump diffusion
+                  </p>
+                </a>
+
+                <div className="block">
+                  <h3 className="text-lg md:text-xl text-white/90">
+                    SOLUSDT Signal Bot
+                  </h3>
+                  <p className="text-sm text-white/40 mt-1">
+                    Algorithmic trading, ATR-based exits, slippage modeling
+                  </p>
+                </div>
+
+                <a
+                  href="https://quantframe.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  <h3 className="text-lg md:text-xl text-white/90 group-hover:text-white transition-colors">
+                    QuantFrame
+                  </h3>
+                  <p className="text-sm text-white/40 mt-1">
+                    Educational platform for quantitative finance
+                  </p>
+                </a>
+              </div>
+            </section>
+
+            {/* Contact Section */}
+            <section className="py-24 border-t border-white/10">
+              <h2 className="text-sm text-white/40 tracking-wide mb-12">Contact</h2>
+
+              <div className="space-y-4">
+                <a
+                  href="mailto:contact@mirkovic.dev"
+                  className="block text-lg md:text-xl text-white/90 hover:text-white transition-colors"
+                >
+                  contact@mirkovic.dev
+                </a>
+
+                <a
+                  href="https://github.com/mirkovicdev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-lg md:text-xl text-white/90 hover:text-white transition-colors"
+                >
+                  github
+                </a>
+
+                <a
+                  href="https://linkedin.com/in/amirkovic"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-lg md:text-xl text-white/90 hover:text-white transition-colors"
+                >
+                  linkedin
+                </a>
+
+                <a
+                  href="https://instagram.com/mirkovicdev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-lg md:text-xl text-white/90 hover:text-white transition-colors"
+                >
+                  instagram
+                </a>
+              </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="py-12 border-t border-white/10 text-sm text-white/30">
+              Antonije Mirkovic
+            </footer>
+          </>
+        )}
+      </div>
+    </main>
   )
 }

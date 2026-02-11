@@ -1,11 +1,37 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { Toaster } from '@/components/ui/sonner'
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
-  title: 'Mirkovic',
-  description: 'Portfolio',
+  title: 'Antonije Mirkovic',
+  description: 'Systems response to constraint.',
+  keywords: ['quantitative finance', 'software engineer', 'mathematics', 'trading systems', 'machine learning', 'portfolio optimization'],
+  authors: [{ name: 'Antonije Mirkovic' }],
+  creator: 'Antonije Mirkovic',
+  metadataBase: new URL('https://mirkovic.dev'),
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://mirkovic.dev',
+    title: 'Antonije Mirkovic',
+    description: 'Systems response to constraint.',
+    siteName: 'Antonije Mirkovic',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Antonije Mirkovic',
+    description: 'Systems response to constraint.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  icons: {
+    icon: '/icon.svg',
+  },
+  other: {
+    'theme-color': '#000000',
+  },
 }
 
 export default function RootLayout({
@@ -18,18 +44,6 @@ export default function RootLayout({
       <body>
         {children}
         <Analytics />
-          <Toaster 
-            position="top-right"
-            richColors
-            theme="dark"
-            toastOptions={{
-              style: {
-                background: 'rgba(39, 39, 42, 0.95)',
-                border: '1px solid rgba(63, 63, 70, 0.5)',
-                color: 'white',
-              },
-            }}
-          />
       </body>
     </html>
   )

@@ -14,7 +14,10 @@
       "Bash(npx tsc:*)",
       "Bash(timeout 30 npm run build:*)",
       "Bash(node -e:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
