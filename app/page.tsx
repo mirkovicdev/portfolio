@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
+
+const MANIFESTO_SEEN_KEY = 'manifesto_seen'
 
 const lines = [
   'One year ago my heart failed.',
@@ -15,11 +18,11 @@ const lines = [
   '',
   'I was operating without control.',
   '',
+  '---',
+  '',
   'After the diagnosis, my heart was misfiring roughly 25% of the time.',
   '',
-  'The next available cardiology follow-up was months away.',
-  '',
-  'Months.',
+  'The next cardiology follow-up was months away.',
   '',
   'No continuous monitoring.',
   '',
@@ -27,135 +30,58 @@ const lines = [
   '',
   'Just medication and uncertainty.',
   '',
-  'Everytime I left my house I was in constant fear.',
-  '',
-  'I did not want to wait months to understand what my heart was doing in real time.',
+  'I did not want to wait months to understand what my heart was doing.',
   '',
   'So I built the monitoring system myself.',
   '',
-  'A real-time ECG platform connected to a chest strap.',
+  'Real-time ECG connected to a chest strap.',
   '',
   'Live PVC detection.',
   '',
-  'Continuous arrhythmia burden estimation.',
-  '',
-  'Signal processing pipeline.',
-  '',
-  'Time-series modeling.',
-  '',
-  'Neural network classification.',
-  '',
-  'Workout session tracking.',
+  'Arrhythmia burden estimation.',
   '',
   'Alerts when abnormal patterns spike.',
   '',
-  'I built it because the alternative was guessing for months.',
-  '',
   'It turned fear into telemetry.',
   '',
-  'It gave me continuous feedback where the medical system could only give me appointments.',
+  '---',
   '',
-  'Around the same time, trading exposed a different weakness.',
+  'Trading exposed a different weakness.',
   '',
   'I was not bad at math.',
   '',
   'I was bad at structure.',
   '',
-  'No position sizing discipline.',
-  '',
-  'No probabilistic framework.',
-  '',
-  'No formal constraints.',
+  'No position sizing. No probabilistic framework. No formal constraints.',
   '',
   'Just reactions.',
   '',
-  'Mathematics was the one advantage I actually had.',
+  'So I stopped trying to predict. I started modeling.',
   '',
-  'So I stopped trying to predict.',
-  '',
-  'I started modeling.',
-  '',
-  'Risk first.',
-  '',
-  'Optimization under constraints.',
-  '',
-  'Transaction costs.',
-  '',
-  'Regime shifts.',
-  '',
-  'Execution assumptions.',
-  '',
-  'I implemented cardinality-constrained portfolio optimization.',
-  '',
-  'I reproduced Wasserstein-based market regime clustering from research literature.',
-  '',
-  'I built systematic strategies with explicit slippage and volatility-adjusted exits.',
+  'Risk first. Optimization under constraints. Explicit assumptions.',
   '',
   'The goal was not to win trades.',
   '',
   'It was to remove randomness from my own behavior.',
   '',
-  'While doing this, I moved onto an accelerated academic path, taking extra courses each semester and completing advanced third-year mathematics early.',
+  '---',
   '',
-  'Functional analysis.',
+  'Both problems had the same solution.',
   '',
-  'Abstract algebra.',
+  'Build systems. Replace intuition with structure. Turn uncertainty into data.',
   '',
-  'Complex analysis.',
-  '',
-  'Not to collect courses.',
-  '',
-  'To strengthen the only tool that consistently worked for me.',
-  '',
-  'Then I built distribution.',
-  '',
-  'QuantFrame.',
-  '',
-  'A platform built to train real quantitative thinking, not surface-level trading tactics.',
-  '',
-  'Four thousand users in three weeks.',
-  '',
-  'Built on credibility, not hype.',
-  '',
-  'In parallel, I documented the process publicly.',
-  '',
-  'That archive became a community of over 100,000 people focused on quantitative finance and mathematics.',
-  '',
-  'Tens of millions of views.',
-  '',
-  'Not influence.',
-  '',
-  'Leverage.',
-  '',
-  'The pattern is simple.',
-  '',
-  'When I lose control, I build systems.',
-  '',
-  'When I face uncertainty, I formalize it.',
-  '',
-  'When something takes months to access, I instrument it myself.',
-  '',
-  'This is not a pivot story.',
-  '',
-  'It is a systems response to constraint.',
+  "That's what I do now.",
 ]
 
 function Line({
   children,
-  isTyping = false
 }: {
   children: React.ReactNode
-  isTyping?: boolean
 }) {
   const ref = useRef<HTMLParagraphElement>(null)
-  const [opacity, setOpacity] = useState(isTyping ? 1 : 0.15)
+  const [opacity, setOpacity] = useState(1) // Start at full opacity to prevent flash
 
   useEffect(() => {
-    if (isTyping) {
-      setOpacity(1)
-      return
-    }
-
     const updateOpacity = () => {
       if (!ref.current) return
 
@@ -175,7 +101,7 @@ function Line({
     updateOpacity()
     window.addEventListener('scroll', updateOpacity, { passive: true })
     return () => window.removeEventListener('scroll', updateOpacity)
-  }, [isTyping])
+  }, [])
 
   return (
     <p
@@ -193,6 +119,7 @@ export default function Manifesto() {
   const [currentCharIndex, setCurrentCharIndex] = useState(0)
   const [completedLines, setCompletedLines] = useState<string[]>([])
   const [isComplete, setIsComplete] = useState(false)
+  const [hasCheckedSession, setHasCheckedSession] = useState(false)
   const typingRef = useRef<HTMLParagraphElement>(null)
 
   const currentLine = lines[currentLineIndex] || ''
@@ -223,25 +150,45 @@ export default function Manifesto() {
     }
   }, [currentLine, currentLineIndex, isComplete])
 
+  // Check sessionStorage on mount - skip typewriter if already seen
+  useEffect(() => {
+    const seen = sessionStorage.getItem(MANIFESTO_SEEN_KEY)
+    if (seen === 'true') {
+      setCompletedLines(lines)
+      setCurrentLineIndex(lines.length)
+      setIsComplete(true)
+    }
+    setHasCheckedSession(true)
+  }, [])
+
+  // Mark as seen when typewriter completes
+  useEffect(() => {
+    if (isComplete && hasCheckedSession) {
+      sessionStorage.setItem(MANIFESTO_SEEN_KEY, 'true')
+    }
+  }, [isComplete, hasCheckedSession])
+
   // Typing effect
   useEffect(() => {
-    if (isComplete) return
+    if (!hasCheckedSession || isComplete) return
     if (currentCharIndex >= currentLine.length) {
       const timeout = setTimeout(() => {
         advanceToNextLine()
-      }, currentLine === '' ? 80 : 300)
+      }, currentLine === '' ? 50 : 200)
       return () => clearTimeout(timeout)
     }
 
     const timeout = setTimeout(() => {
       setCurrentCharIndex((prev) => prev + 1)
-    }, 45)
+    }, 35)
 
     return () => clearTimeout(timeout)
-  }, [currentCharIndex, currentLine, advanceToNextLine, isComplete])
+  }, [currentCharIndex, currentLine, advanceToNextLine, isComplete, hasCheckedSession])
 
   // Keyboard listener for Enter and Space
   useEffect(() => {
+    if (!hasCheckedSession) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
@@ -251,10 +198,12 @@ export default function Manifesto() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [skipCurrentLine])
+  }, [skipCurrentLine, hasCheckedSession])
 
   // Touch listener for mobile
   useEffect(() => {
+    if (!hasCheckedSession) return
+
     const handleTouchStart = () => {
       if (!isComplete) {
         skipCurrentLine()
@@ -263,10 +212,12 @@ export default function Manifesto() {
 
     window.addEventListener('touchstart', handleTouchStart, { passive: true })
     return () => window.removeEventListener('touchstart', handleTouchStart)
-  }, [skipCurrentLine, isComplete])
+  }, [skipCurrentLine, isComplete, hasCheckedSession])
 
   // Click listener for PC
   useEffect(() => {
+    if (!hasCheckedSession) return
+
     const handleClick = () => {
       if (!isComplete) {
         skipCurrentLine()
@@ -275,14 +226,43 @@ export default function Manifesto() {
 
     window.addEventListener('click', handleClick)
     return () => window.removeEventListener('click', handleClick)
-  }, [skipCurrentLine, isComplete])
+  }, [skipCurrentLine, isComplete, hasCheckedSession])
 
-  // Keep typing line in view
+  // Lock manual scroll while typing, but allow programmatic scroll
   useEffect(() => {
-    if (typingRef.current && !isComplete) {
+    if (!hasCheckedSession) return
+
+    if (isComplete) {
+      document.body.style.overflow = ''
+      return
+    }
+
+    // Prevent manual scroll with wheel/touch, but allow programmatic scrollIntoView
+    const preventScroll = (e: Event) => {
+      e.preventDefault()
+    }
+
+    window.addEventListener('wheel', preventScroll, { passive: false })
+    window.addEventListener('touchmove', preventScroll, { passive: false })
+
+    return () => {
+      window.removeEventListener('wheel', preventScroll)
+      window.removeEventListener('touchmove', preventScroll)
+      document.body.style.overflow = ''
+    }
+  }, [isComplete, hasCheckedSession])
+
+  // Keep typing line centered in viewport
+  useEffect(() => {
+    if (typingRef.current && !isComplete && hasCheckedSession) {
       typingRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, [completedLines, isComplete])
+  }, [completedLines, isComplete, hasCheckedSession])
+
+  // Don't render until we've checked session to prevent flash
+  if (!hasCheckedSession) {
+    return <main className="min-h-screen bg-black" />
+  }
 
   return (
     <main className="min-h-screen bg-black hide-scrollbar overflow-y-auto">
@@ -327,6 +307,18 @@ export default function Manifesto() {
             </div>
           )}
         </div>
+
+        {/* Full Story Link */}
+        {isComplete && (
+          <div className="py-16">
+            <Link
+              href="/story"
+              className="text-white/40 hover:text-white/70 transition-colors text-base md:text-lg"
+            >
+              Read the full story &rarr;
+            </Link>
+          </div>
+        )}
 
         {/* Portfolio Section */}
         {isComplete && (
