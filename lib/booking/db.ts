@@ -33,7 +33,7 @@ export interface BookingRow {
   reminder_sent_at: string | null
 }
 
-export type CancelReason = 'refunded' | 'disputed' | 'taken_while_paying'
+export type CancelReason = 'refunded' | 'disputed' | 'taken_while_paying' | 'cancelled_by_host'
 
 export type NotificationColumn =
   | 'owner_notified_at'

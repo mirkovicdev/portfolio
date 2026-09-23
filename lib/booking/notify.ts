@@ -273,8 +273,8 @@ export function buildOwnerCancellationEmail(b: BookingRow, reason: Cancellation,
   }
 }
 
-// To the client, only for calls that haven't happened yet
-export function buildClientCancellationEmail(b: BookingRow, reason: Cancellation): nodemailer.SendMailOptions {
+// To the client, only for calls that haven't happened yet. 'host' = you cancelled it from the admin page.
+export function buildClientCancellationEmail(b: BookingRow, reason: Cancellation | 'host'): nodemailer.SendMailOptions {
   const zone = b.visitor_time_zone || site.booking.hostTimeZone
   const hour12 = b.visitor_hour12 ?? false
   const when = `${formatRangeIn(b.start_at, b.end_at, zone, hour12)} ${friendlyZoneName(zone)}`
@@ -282,17 +282,18 @@ export function buildClientCancellationEmail(b: BookingRow, reason: Cancellation
   const firstName = b.name.trim().split(/\s+/)[0]
   const paid = formatPrice(b.amount_cents / 100, b.currency)
 
-  const body =
-    reason === 'refunded'
-      ? [
-          `Your ${topic} call on ${when} has been cancelled, and your payment of ${paid} has been refunded in full.`,
-          'Refunds usually show up on your statement within 5–10 business days.',
-          `Want to book another time? ${site.url}`,
-        ]
-      : [
-          `Your ${topic} call on ${when} has been cancelled because the payment was disputed with your bank.`,
-          'If this is a mistake, just reply to this email.',
-        ]
+  const body = {
+    refunded: [
+      `Your ${topic} call on ${when} has been cancelled, and your payment of ${paid} has been refunded in full.`,
+      'Refunds usually show up on your statement within 5–10 business days.',
+      `Want to book another time? ${site.url}`,
+    ],
+    disputed: [
+      `Your ${topic} call on ${when} has been cancelled because the payment was disputed with your bank.`,
+      'If this is a mistake, just reply to this email.',
+    ],
+    host: [`Your ${topic} call on ${when} has been cancelled.`, 'If you have any questions, just reply to this email.'],
+  }[reason]
 
   const text = [`Hi ${firstName},`, '', ...body.flatMap((p) => [p, '']), 'Antonije'].join('\n')
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#18181b;max-width:520px">
@@ -309,6 +310,14 @@ ${body.map((p) => `<p style="margin:0 0 16px">${escapeHtml(p)}</p>`).join('\n')}
     text,
     html,
   }
+}
+
+// You cancelled from the admin page and chose to tell the client (sent at most once)
+export async function sendHostCancellationEmail(b: BookingRow) {
+  if (!emailConfigured()) return false
+  return sendOnce(b, 'client_cancel_notified_at', 'Client told about host cancellation', async () =>
+    void (await mailer().sendMail(buildClientCancellationEmail(b, 'host')))
+  )
 }
 
 // Cancellation emails, each exactly once. False if one failed, so the Stripe webhook retries.

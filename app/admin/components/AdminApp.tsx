@@ -17,11 +17,13 @@ interface Props {
 const { durationMin, bufferMin, daysAhead, minNoticeHours, hostTimeZone } = site.booking
 
 // Signed-in view: pick days on the calendar, set their hours, save. Upcoming bookings below.
-export default function AdminApp({ email, today, initialOpened, bookings }: Props) {
+export default function AdminApp({ email, today, initialOpened, bookings: initialBookings }: Props) {
   const [opened, setOpened] = useState(initialOpened)
+  const [bookings, setBookings] = useState(initialBookings)
   const [selected, setSelected] = useState<string[]>([])
   const [draft, setDraft] = useState<Window[]>([])
   const [savedNote, setSavedNote] = useState<string | null>(null)
+  const [bookingNote, setBookingNote] = useState<string | null>(null)
 
   // Bookings grouped by their Oslo day
   const bookingsByDay = useMemo(() => {
@@ -29,6 +31,11 @@ export default function AdminApp({ email, today, initialOpened, bookings }: Prop
     for (const b of bookings) (map[zonedDayKey(new Date(b.start), hostTimeZone)] ??= []).push(b)
     return map
   }, [bookings])
+
+  function handleCancelled(b: AdminBooking, emailed: boolean) {
+    setBookings((list) => list.filter((x) => x.id !== b.id))
+    setBookingNote(`Cancelled ${b.name}'s call${emailed ? ' and emailed them' : ''}. No refund was made.`)
+  }
   const bookingCount = useMemo(() => Object.fromEntries(Object.entries(bookingsByDay).map(([d, list]) => [d, list.length])), [bookingsByDay])
 
   function toggleDay(day: string) {
@@ -100,7 +107,12 @@ export default function AdminApp({ email, today, initialOpened, bookings }: Prop
           <h2 id="bookings-heading" className="font-mono text-[18px] font-semibold tracking-[-0.02em] text-zinc-50">
             Upcoming bookings
           </h2>
-          <UpcomingBookings bookings={bookings} />
+          {bookingNote && (
+            <p role="status" className="mt-3 text-[13px] text-phthalo-300">
+              {bookingNote}
+            </p>
+          )}
+          <UpcomingBookings bookings={bookings} onCancelled={handleCancelled} />
         </section>
       </div>
     </main>

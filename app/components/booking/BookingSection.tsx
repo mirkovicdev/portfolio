@@ -44,7 +44,8 @@ export default function BookingSection() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const list = ((await res.json()) as { slots: string[] }).slots.map((s) => new Date(s))
       setSlots(list)
-      setDayKey((key) => (key && list.some((s) => localDayKey(s) === key) ? key : list[0] ? localDayKey(list[0]) : null))
+      // Keep the visitor's chosen day if it still has times; never pre-select one
+      setDayKey((key) => (key && list.some((s) => localDayKey(s) === key) ? key : null))
     } catch {
       setLoadError(true)
       setSlots([])
@@ -75,6 +76,7 @@ export default function BookingSection() {
   }, [slots])
 
   const daySlots = days.find((d) => d.key === dayKey)?.slots ?? []
+  const firstOpenDay = days.find((d) => d.slots.length > 0)
   const price = topicId ? priceForTopic(topicId) : undefined
   const priceLabel = price ? formatPrice(price, booking.currency) : ''
 
@@ -96,6 +98,7 @@ export default function BookingSection() {
     // Tapping the selected topic again deselects it and collapses the card back to the topic list
     if (id === topicId) {
       setTopicId(null)
+      setDayKey(null)
       setSlot(null)
       setFormOpen(false)
       setNotice(null)
@@ -176,8 +179,30 @@ export default function BookingSection() {
                 ) : (
                   <>
                     <DateStrip days={days} selected={dayKey} onSelect={selectDay} />
-                    <SlotGrid slots={daySlots} selected={slot} onSelect={selectSlot} />
-                    <p className="mt-3 text-[12px] text-zinc-400">Times shown in your time zone: {formatTimeZone(timeZone)}</p>
+                    {dayKey ? (
+                      <>
+                        <SlotGrid slots={daySlots} selected={slot} onSelect={selectSlot} />
+                        <p className="mt-3 text-[12px] text-zinc-400">Times shown in your time zone: {formatTimeZone(timeZone)}</p>
+                      </>
+                    ) : (
+                      // Times appear only after a day is picked; point to the first open one
+                      <p className="mt-4 text-[14px] text-zinc-400">
+                        Pick a day to see times.
+                        {firstOpenDay && (
+                          <>
+                            {' '}
+                            First available:{' '}
+                            <button
+                              type="button"
+                              onClick={() => selectDay(firstOpenDay.key)}
+                              className="text-zinc-50 underline decoration-white/30 underline-offset-4 hover:decoration-zinc-50"
+                            >
+                              {formatDayShort(firstOpenDay.date)}
+                            </button>
+                          </>
+                        )}
+                      </p>
+                    )}
                   </>
                 )}
               </div>
