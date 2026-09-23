@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
+
+// Self-hosted by Next.js at build time. Inter for UI, JetBrains Mono for the name and section headings
+const sans = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
+const mono = JetBrains_Mono({ subsets: ['latin'], display: 'swap', variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: 'Antonije Mirkovic',
@@ -30,7 +35,7 @@ export const metadata: Metadata = {
     icon: '/icon.svg',
   },
   other: {
-    'theme-color': '#000000',
+    'theme-color': '#09090b',
   },
 }
 
@@ -41,7 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${sans.variable} ${mono.variable} font-sans`}>
         {children}
         <Analytics />
       </body>
