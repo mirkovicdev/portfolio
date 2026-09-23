@@ -240,6 +240,10 @@ function Confirmation({ result, onReset }: { result: BookedResult & { slot: Date
           Open the Meet link
         </a>
       )}
+      <p className="mt-4 text-[13px] leading-relaxed text-zinc-500">
+        Can&apos;t find the email? Check your spam or promotions folder, and mark it as not spam so the reminder before the call
+        reaches your inbox.
+      </p>
     </div>
   )
 }
