@@ -19,3 +19,6 @@ export function priceForTopic(topicId: string): number | undefined {
 }
 
 export const lowestPrice = Math.min(...booking.tiers.map((t) => t.price))
+
+// The link you send for a free call, e.g. https://mirkovic.dev/meet/k3F9xQ…
+export const inviteUrl = (token: string) => `${site.url}${booking.invite.path}/${token}`

@@ -1,3 +1,4 @@
+import { site } from '@/lib/site'
 import { friendlyZoneName } from '@/lib/booking/zones'
 
 // Labels stay in English (the page is English) but follow the visitor's 12h/24h clock preference
@@ -20,3 +21,9 @@ export const formatWeekdayShort = (d: Date) => d.toLocaleDateString(LOCALE, { we
 export const formatDayLong = (d: Date) => d.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' })
 export const formatMonth = (d: Date) => d.toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' })
 export const formatDayShort = (d: Date) => d.toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' })
+
+// "Wed 23 Sept, 17:00 – 17:45"
+export function describeSlot(slot: Date) {
+  const end = new Date(slot.getTime() + site.booking.durationMin * 60000)
+  return `${formatDayShort(slot)}, ${formatTime(slot)} – ${formatTime(end)}`
+}

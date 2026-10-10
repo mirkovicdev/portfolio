@@ -3,7 +3,7 @@
 // Called by both /api/booking/confirm (right after paying) and the Stripe webhook (backup), so it is idempotent.
 import 'server-only'
 import { site, formatPrice } from '@/lib/site'
-import { getTopic } from './catalog'
+import { backgroundLabel, hostLabel, isFree } from './labels'
 import { stripe, BOOKING_SOURCE } from './stripe'
 import { getBooking, markConfirmed, updateBooking, type BookingRow } from './db'
 import { createCalendarEvent, googleConfigured } from './google'
@@ -16,18 +16,39 @@ export type FinalizeResult =
 
 // Shown in your calendar event (Google sends the client nothing; they get our email)
 function eventDescription(b: BookingRow) {
-  const background = site.booking.backgrounds.find((x) => x.id === b.background)?.label ?? b.background
+  const background = backgroundLabel(b)
   return [
     `${site.booking.durationMin}-minute 1:1 video call booked on mirkovic.dev.`,
     '',
-    `Topic: ${getTopic(b.topic)?.label ?? b.topic}`,
-    `Background: ${background}`,
-    `Paid: ${formatPrice(b.amount_cents / 100, b.currency)}`,
+    `Topic: ${hostLabel(b)}`,
+    background ? `Background: ${background}` : null,
+    `Paid: ${isFree(b) ? 'free (personal link)' : formatPrice(b.amount_cents / 100, b.currency)}`,
     `Client time zone: ${b.visitor_time_zone ?? 'unknown'}`,
     '',
     'What to talk about:',
     b.message?.trim() || 'Nothing added.',
-  ].join('\n')
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
+}
+
+// Creates the Google Calendar event with a Meet link and stores both on the booking. Throws if Google fails.
+// Repeat-safe: the event id is derived from the booking id. Also used for free calls (/api/booking/invite).
+export async function addCalendarEvent(booking: BookingRow): Promise<BookingRow> {
+  if (booking.google_event_id || !googleConfigured()) return booking
+  const { eventId, meetUrl } = await createCalendarEvent({
+    bookingId: booking.id,
+    start: booking.start_at,
+    end: booking.end_at,
+    timeZone: site.booking.hostTimeZone,
+    summary: `${hostLabel(booking)}: ${booking.name} and ${site.name}`,
+    description: eventDescription(booking),
+    guestName: booking.name,
+    guestEmail: booking.email,
+  })
+  await updateBooking(booking.id, { google_event_id: eventId, meet_url: meetUrl })
+  console.log('📅 [booking] Calendar event created', booking.id)
+  return { ...booking, google_event_id: eventId, meet_url: meetUrl }
 }
 
 export async function finalizeBooking(paymentIntentId: string): Promise<FinalizeResult> {
@@ -54,19 +75,7 @@ export async function finalizeBooking(paymentIntentId: string): Promise<Finalize
 
   if (!booking.google_event_id && googleConfigured()) {
     try {
-      const { eventId, meetUrl } = await createCalendarEvent({
-        bookingId: booking.id,
-        start: booking.start_at,
-        end: booking.end_at,
-        timeZone: site.booking.hostTimeZone,
-        summary: `${getTopic(booking.topic)?.label ?? 'Call'}: ${booking.name} and ${site.name}`,
-        description: eventDescription(booking),
-        guestName: booking.name,
-        guestEmail: booking.email,
-      })
-      await updateBooking(booking.id, { google_event_id: eventId, meet_url: meetUrl })
-      booking = { ...booking, google_event_id: eventId, meet_url: meetUrl }
-      console.log('📅 [booking] Calendar event created', booking.id)
+      booking = await addCalendarEvent(booking)
     } catch (err) {
       // Payment is safe; the webhook retries this until it works
       console.error('❌ [booking] Calendar event failed', booking.id, err)

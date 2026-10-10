@@ -11,7 +11,7 @@ export interface BookingRow {
   hold_expires_at: string | null
   topic: string
   tier: string
-  background: string
+  background: string | null // null for free calls (the question isn't asked)
   message: string | null
   name: string
   email: string
@@ -31,6 +31,7 @@ export interface BookingRow {
   owner_cancel_notified_at: string | null
   client_cancel_notified_at: string | null
   reminder_sent_at: string | null
+  invite_id: string | null // the personal link a free call was booked with
 }
 
 export type CancelReason = 'refunded' | 'disputed' | 'taken_while_paying' | 'cancelled_by_host'
@@ -56,9 +57,19 @@ export type NewHold = Pick<
   | 'visitor_hour12'
   | 'amount_cents'
   | 'currency'
->
+> &
+  Partial<Pick<BookingRow, 'invite_id'>>
+
+export interface InviteRow {
+  id: string
+  created_at: string
+  token: string
+  label: string | null
+  revoked_at: string | null
+}
 
 const OVERLAP_VIOLATION = '23P01' // call_bookings_no_overlap rejected the row
+const UNIQUE_VIOLATION = '23505' // on a new booking: call_bookings_one_per_invite, the link already has a call
 
 let client: SupabaseClient | null = null
 function supabase() {
@@ -69,6 +80,7 @@ function supabase() {
 }
 const db = () => supabase().from('call_bookings')
 const availability = () => supabase().from('call_availability')
+const invites = () => supabase().from('call_invites')
 
 // ---- Opened days (admin page) ----
 
@@ -200,4 +212,48 @@ export async function getActiveBookings(from: Date, to: Date): Promise<Interval[
     .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${new Date().toISOString()})`)
   if (error) throw error
   return (data as { start_at: string; end_at: string }[]).map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at) }))
+}
+
+// ---- Personal links for free calls (admin page) ----
+
+// True when createHold failed because this link already has a held or booked call
+export const isInviteAlreadyUsed = (err: unknown) => (err as { code?: string } | null)?.code === UNIQUE_VIOLATION
+
+export async function createInvite(token: string, label: string | null): Promise<InviteRow> {
+  const { data, error } = await invites().insert({ token, label }).select().single()
+  if (error) throw error
+  return data as InviteRow
+}
+
+// Links that have a held or booked call. Callers expire stale holds first.
+async function usedInviteIds(inviteId?: string): Promise<Set<string>> {
+  let query = db().select('invite_id').not('invite_id', 'is', null).in('status', ['pending', 'confirmed'])
+  if (inviteId) query = query.eq('invite_id', inviteId)
+  const { data, error } = await query
+  if (error) throw error
+  return new Set((data as { invite_id: string }[]).map((r) => r.invite_id))
+}
+
+// The link behind a token, and whether it already has a call. Null = unknown or revoked.
+export async function getInviteByToken(token: string): Promise<{ invite: InviteRow; used: boolean } | null> {
+  const { data, error } = await invites().select('*').eq('token', token).is('revoked_at', null).maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const invite = data as InviteRow
+  return { invite, used: (await usedInviteIds(invite.id)).has(invite.id) }
+}
+
+// Links that can still book, newest first
+export async function getOpenInvites(): Promise<InviteRow[]> {
+  const { data, error } = await invites().select('*').is('revoked_at', null).order('created_at', { ascending: false })
+  if (error) throw error
+  const used = await usedInviteIds()
+  return (data as InviteRow[]).filter((i) => !used.has(i.id))
+}
+
+// Stops a link from working. False if it doesn't exist or was already revoked.
+export async function revokeInvite(id: string): Promise<boolean> {
+  const { data, error } = await invites().update({ revoked_at: new Date().toISOString() }).eq('id', id).is('revoked_at', null).select('id')
+  if (error) throw error
+  return (data?.length ?? 0) > 0
 }

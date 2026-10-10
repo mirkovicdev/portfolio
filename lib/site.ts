@@ -68,6 +68,13 @@ export const site = {
     },
     cancellationPolicy:
       'Free cancellation or rescheduling until 24 hours before the call: just email contact@mirkovic.dev. No refunds after that.',
+
+    // Free calls through personal one-time links (created on /admin), same open hours as paid calls
+    invite: {
+      path: '/meet', // links look like mirkovic.dev/meet/<token>
+      title: 'Call with Antonije', // page heading, client emails and reminders
+      policy: "Can't make it? Email contact@mirkovic.dev and we find another time.",
+    },
   },
 }
 

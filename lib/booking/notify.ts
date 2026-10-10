@@ -5,7 +5,7 @@
 import 'server-only'
 import nodemailer from 'nodemailer'
 import { site, formatPrice } from '@/lib/site'
-import { getTopic } from './catalog'
+import { backgroundLabel, callNoun, callTitle, cancellationText, hostLabel as topicLabel, isFree } from './labels'
 import { buildIcs, icsDate } from './ics'
 import { formatRangeIn, formatTimeIn, friendlyZoneName } from './zones'
 import { stripeDashboardUrl } from './stripe'
@@ -20,8 +20,6 @@ const mailer = () =>
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
   }))
 
-const topicLabel = (b: BookingRow) => getTopic(b.topic)?.label ?? b.topic
-const backgroundLabel = (b: BookingRow) => site.booking.backgrounds.find((x) => x.id === b.background)?.label ?? b.background
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
@@ -30,9 +28,10 @@ export function buildOwnerEmail(b: BookingRow): nodemailer.SendMailOptions {
   const host = site.booking.hostTimeZone
   const guestZone = b.visitor_time_zone && b.visitor_time_zone !== host ? b.visitor_time_zone : null
   const hostWhen = formatRangeIn(b.start_at, b.end_at, host, false, 'short')
+  const background = backgroundLabel(b)
 
   const text = [
-    `${b.name} booked a ${topicLabel(b)} call.`,
+    `${b.name} booked a ${isFree(b) ? 'free call with a personal link' : `${topicLabel(b)} call`}.`,
     '',
     `When: ${hostWhen} ${friendlyZoneName(host)}`,
     guestZone
@@ -40,8 +39,8 @@ export function buildOwnerEmail(b: BookingRow): nodemailer.SendMailOptions {
       : null,
     `Meet: ${b.meet_url ?? 'link is in your Google Calendar event'}`,
     '',
-    `Paid: ${formatPrice(b.amount_cents / 100, b.currency)}`,
-    `Background: ${backgroundLabel(b)}`,
+    `Paid: ${isFree(b) ? 'free' : formatPrice(b.amount_cents / 100, b.currency)}`,
+    background ? `Background: ${background}` : null,
     `Email: ${b.email}`,
     '',
     'What they want to talk about:',
@@ -51,6 +50,7 @@ export function buildOwnerEmail(b: BookingRow): nodemailer.SendMailOptions {
     b.stripe_payment_intent_id
       ? `To cancel, fully refund the payment in Stripe and everything else happens automatically:\n${stripeDashboardUrl(`payments/${b.stripe_payment_intent_id}`)}`
       : null,
+    isFree(b) ? `To cancel, use "Cancel" on ${site.url}/admin.` : null,
   ]
     .filter((line) => line !== null)
     .join('\n')
@@ -70,8 +70,11 @@ export function buildClientEmail(b: BookingRow): nodemailer.SendMailOptions {
   const hour12 = b.visitor_hour12 ?? false
   const when = formatRangeIn(b.start_at, b.end_at, zone, hour12)
   const zoneName = friendlyZoneName(zone)
-  const topic = topicLabel(b)
-  const title = `${topic} with ${site.name}`
+  const title = callTitle(b)
+  // "Study plan, 45-minute video call", or just "45-minute video call" for a free call
+  const what = `${isFree(b) ? '' : `${topicLabel(b)}, `}${site.booking.durationMin}-minute video call`
+  const policy = cancellationText(b)
+  const receipt = isFree(b) ? null : 'Your receipt comes separately from Stripe.'
   const firstName = b.name.trim().split(/\s+/)[0]
   const meet = b.meet_url
   const googleAdd =
@@ -88,7 +91,7 @@ export function buildClientEmail(b: BookingRow): nodemailer.SendMailOptions {
     start: b.start_at,
     end: b.end_at,
     summary: title,
-    description: `${meet ? `Join with Google Meet: ${meet}\n\n` : ''}${site.booking.cancellationPolicy}`,
+    description: `${meet ? `Join with Google Meet: ${meet}\n\n` : ''}${policy}`,
     location: meet ?? 'Google Meet',
     url: meet ?? undefined,
   })
@@ -98,7 +101,7 @@ export function buildClientEmail(b: BookingRow): nodemailer.SendMailOptions {
     '',
     'Your call is booked.',
     '',
-    `What: ${topic}, ${site.booking.durationMin}-minute video call with ${site.name}`,
+    `What: ${what} with ${site.name}`,
     `When: ${when} ${zoneName}`,
     `Join: ${meet ?? 'the Google Meet link is in the attached calendar invite'}`,
     '',
@@ -107,19 +110,21 @@ export function buildClientEmail(b: BookingRow): nodemailer.SendMailOptions {
     '',
     'Want me to look at something before the call? Just reply to this email.',
     '',
-    site.booking.cancellationPolicy,
-    'Your receipt comes separately from Stripe.',
+    policy,
+    receipt,
     '',
     'See you then,',
     'Antonije',
-  ].join('\n')
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
 
   const muted = 'color:#71717a'
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#18181b;max-width:520px">
 <p style="margin:0 0 16px">Hi ${escapeHtml(firstName)},</p>
 <p style="margin:0 0 20px">Your call is booked.</p>
 <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 24px">
-<tr><td style="${muted};padding:4px 20px 4px 0;vertical-align:top">What</td><td style="padding:4px 0">${escapeHtml(topic)}, ${site.booking.durationMin}-minute video call</td></tr>
+<tr><td style="${muted};padding:4px 20px 4px 0;vertical-align:top">What</td><td style="padding:4px 0">${escapeHtml(what)}</td></tr>
 <tr><td style="${muted};padding:4px 20px 4px 0;vertical-align:top">When</td><td style="padding:4px 0">${escapeHtml(when)}<br><span style="${muted}">${escapeHtml(zoneName)}</span></td></tr>
 </table>
 ${
@@ -130,7 +135,7 @@ ${
 }
 <p style="margin:0 0 16px">Add it to your calendar with the attached <strong>invite.ics</strong>, or <a href="${escapeHtml(googleAdd)}" style="color:#18181b">add it to Google Calendar</a>.</p>
 <p style="margin:0 0 16px">Want me to look at something before the call? Just reply to this email.</p>
-<p style="margin:0 0 24px;font-size:13px;${muted}">${escapeHtml(site.booking.cancellationPolicy)}<br>Your receipt comes separately from Stripe.</p>
+<p style="margin:0 0 24px;font-size:13px;${muted}">${escapeHtml(policy)}${receipt ? `<br>${receipt}` : ''}</p>
 <p style="margin:0">See you then,<br>Antonije</p>
 </div>`
 
@@ -170,7 +175,7 @@ function startsIn(startIso: string, now: Date) {
 export function buildReminderEmail(b: BookingRow, now = new Date()): nodemailer.SendMailOptions {
   const zone = b.visitor_time_zone || site.booking.hostTimeZone
   const time = `${formatTimeIn(b.start_at, zone, b.visitor_hour12 ?? false)} ${friendlyZoneName(zone)}`
-  const topic = topicLabel(b)
+  const noun = callNoun(b)
   const firstName = b.name.trim().split(/\s+/)[0]
   const soon = startsIn(b.start_at, now)
   const meet = b.meet_url
@@ -178,7 +183,7 @@ export function buildReminderEmail(b: BookingRow, now = new Date()): nodemailer.
   const text = [
     `Hi ${firstName},`,
     '',
-    `Your ${topic} call with ${site.name} starts in ${soon}, at ${time}.`,
+    `Your ${noun} with ${site.name} starts in ${soon}, at ${time}.`,
     '',
     meet ? `Join: ${meet}` : 'The Google Meet link is in your confirmation email.',
     '',
@@ -189,7 +194,7 @@ export function buildReminderEmail(b: BookingRow, now = new Date()): nodemailer.
 
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#18181b;max-width:520px">
 <p style="margin:0 0 16px">Hi ${escapeHtml(firstName)},</p>
-<p style="margin:0 0 20px">Your ${escapeHtml(topic)} call with ${site.name} starts in ${soon}, at ${escapeHtml(time)}.</p>
+<p style="margin:0 0 20px">Your ${escapeHtml(noun)} with ${site.name} starts in ${soon}, at ${escapeHtml(time)}.</p>
 ${
   meet
     ? `<p style="margin:0 0 8px"><a href="${escapeHtml(meet)}" style="display:inline-block;background:#18181b;color:#fafafa;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600">Join Google Meet</a></p>
@@ -204,7 +209,7 @@ ${
     from: `"${site.name}" <${process.env.EMAIL_USER}>`,
     to: { name: b.name, address: b.email },
     replyTo: site.contactEmail,
-    subject: `Starting in ${soon}: ${topic} with ${site.name}`,
+    subject: `Starting in ${soon}: ${callTitle(b)}`,
     text,
     html,
   }
@@ -278,21 +283,21 @@ export function buildClientCancellationEmail(b: BookingRow, reason: Cancellation
   const zone = b.visitor_time_zone || site.booking.hostTimeZone
   const hour12 = b.visitor_hour12 ?? false
   const when = `${formatRangeIn(b.start_at, b.end_at, zone, hour12)} ${friendlyZoneName(zone)}`
-  const topic = topicLabel(b)
+  const noun = callNoun(b)
   const firstName = b.name.trim().split(/\s+/)[0]
   const paid = formatPrice(b.amount_cents / 100, b.currency)
 
   const body = {
     refunded: [
-      `Your ${topic} call on ${when} has been cancelled, and your payment of ${paid} has been refunded in full.`,
+      `Your ${noun} on ${when} has been cancelled, and your payment of ${paid} has been refunded in full.`,
       'Refunds usually show up on your statement within 5–10 business days.',
       `Want to book another time? ${site.url}`,
     ],
     disputed: [
-      `Your ${topic} call on ${when} has been cancelled because the payment was disputed with your bank.`,
+      `Your ${noun} on ${when} has been cancelled because the payment was disputed with your bank.`,
       'If this is a mistake, just reply to this email.',
     ],
-    host: [`Your ${topic} call on ${when} has been cancelled.`, 'If you have any questions, just reply to this email.'],
+    host: [`Your ${noun} on ${when} has been cancelled.`, 'If you have any questions, just reply to this email.'],
   }[reason]
 
   const text = [`Hi ${firstName},`, '', ...body.flatMap((p) => [p, '']), 'Antonije'].join('\n')
@@ -306,7 +311,7 @@ ${body.map((p) => `<p style="margin:0 0 16px">${escapeHtml(p)}</p>`).join('\n')}
     from: `"${site.name}" <${process.env.EMAIL_USER}>`,
     to: { name: b.name, address: b.email },
     replyTo: site.contactEmail,
-    subject: `Cancelled: ${topic} with ${site.name}, ${formatRangeIn(b.start_at, b.end_at, zone, hour12, 'short')}`,
+    subject: `Cancelled: ${callTitle(b)}, ${formatRangeIn(b.start_at, b.end_at, zone, hour12, 'short')}`,
     text,
     html,
   }

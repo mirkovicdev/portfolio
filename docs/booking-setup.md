@@ -91,3 +91,15 @@ Check what's due without sending: `GET /api/booking/reminders?dryRun=1` with the
   event, opens the time again and emails the client and you. A partial refund only returns money.
 - Disputes (chargebacks): an upcoming call is cancelled the same way; for a past call you get an email with
   the evidence to submit in Stripe. Refunds after the call (goodwill) change nothing else.
+
+## Free calls (personal links)
+
+- `/admin` → **Free call links** → type who it's for (only you see it) → **Create link**. The link
+  (`mirkovic.dev/meet/…`) is copied; send it to that one person.
+- Each link books **one** free 45-min call in the same open times as paid calls, with the same calendar event,
+  Meet link, confirmation and reminder emails. No payment, nothing in Stripe.
+- Once booked, the link stops working and leaves the list; the call shows under **Upcoming bookings** as "Free".
+  **Cancel** there removes the calendar event and makes the link work again (so they can pick a new time).
+- **Revoke** kills an unused link right away. Links are 128-bit random, not indexed by search engines, and
+  `/meet` is linked from nowhere on the site. Stored in `call_invites`; a booking points to its link via
+  `call_bookings.invite_id` (the database allows $0 only with a link, and one active call per link).
