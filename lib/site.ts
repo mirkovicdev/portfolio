@@ -47,8 +47,8 @@ export const site = {
 
     // Price is per tier; each topic belongs to one tier. The server charges from this, never from the browser.
     tiers: [
-      { id: 'career', label: 'Career & study', price: 300 },
-      { id: 'technical', label: 'Technical session', price: 500 },
+      { id: 'career', label: 'Career & study', price: 500 },
+      { id: 'technical', label: 'Technical session', price: 750 },
     ] satisfies { id: TierId; label: string; price: number }[],
     topics: [
       { id: 'study-plan', label: 'Study plan', tier: 'career' },
