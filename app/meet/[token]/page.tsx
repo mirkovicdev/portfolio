@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { site } from '@/lib/site'
+import { site, formatPrice } from '@/lib/site'
 import { expireStaleHolds, getInviteByToken } from '@/lib/booking/db'
 import ProfileHeader from '@/app/components/ProfileHeader'
 import InviteBooking from '@/app/components/booking/InviteBooking'
@@ -25,24 +25,25 @@ export const metadata: Metadata = {
   },
 }
 
-type LinkState = 'open' | 'used' | 'invalid' | 'error'
+type LinkState = { state: 'open'; price: number } | { state: 'used' | 'invalid' | 'error' }
 
-// Checked on the server, so a wrong or used link never shows the booking flow
-async function linkState(token: string): Promise<LinkState> {
-  if (!/^[\w-]{22,64}$/.test(token)) return 'invalid'
+// Checked on the server, so a wrong or used link never shows the booking flow. Price in whole dollars (0 = free).
+async function checkLink(token: string): Promise<LinkState> {
+  if (!/^[\w-]{22,64}$/.test(token)) return { state: 'invalid' }
   try {
     await expireStaleHolds()
     const link = await getInviteByToken(token)
-    return !link ? 'invalid' : link.used ? 'used' : 'open'
+    if (!link) return { state: 'invalid' }
+    return link.used ? { state: 'used' } : { state: 'open', price: link.invite.amount_cents / 100 }
   } catch (err) {
     console.error('❌ [meet] Could not check the link', err)
-    return 'error'
+    return { state: 'error' }
   }
 }
 
 export default async function MeetPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  const state = await linkState(token)
+  const link = await checkLink(token)
 
   return (
     // Same phone-width column as the home page
@@ -55,23 +56,25 @@ export default async function MeetPage({ params }: { params: Promise<{ token: st
             <h2 id="meet-heading" className="font-mono text-[24px] font-semibold leading-none tracking-[-0.03em] text-zinc-50">
               {booking.invite.title}
             </h2>
-            <span className="text-[15px] font-medium text-zinc-50">Free</span>
+            {link.state === 'open' && (
+              <span className="text-[15px] font-medium text-zinc-50">{link.price ? formatPrice(link.price, booking.currency) : 'Free'}</span>
+            )}
           </div>
-          {state === 'open' && (
+          {link.state === 'open' && (
             <p className="mt-3 max-w-[38ch] text-[14px] leading-relaxed text-zinc-400">
               A {booking.durationMin}-minute 1:1 video call. Pick a time that suits you.
             </p>
           )}
 
           <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
-            {state === 'open' ? (
-              <InviteBooking token={token} />
-            ) : state === 'error' ? (
+            {link.state === 'open' ? (
+              <InviteBooking token={token} price={link.price} />
+            ) : link.state === 'error' ? (
               <p className="py-2 text-[14px] leading-relaxed text-zinc-400">
                 Something went wrong loading this page. Refresh it, or email {site.contactEmail}.
               </p>
             ) : (
-              <InviteLinkNotice reason={state} />
+              <InviteLinkNotice reason={link.state} />
             )}
           </div>
         </section>

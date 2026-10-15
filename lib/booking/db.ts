@@ -66,6 +66,7 @@ export interface InviteRow {
   token: string
   label: string | null
   revoked_at: string | null
+  amount_cents: number // 0 = free call, otherwise paid with Stripe
 }
 
 const OVERLAP_VIOLATION = '23P01' // call_bookings_no_overlap rejected the row
@@ -158,13 +159,14 @@ export async function updateBooking(id: string, fields: Partial<BookingRow>) {
   if (error) throw error
 }
 
-// Marks a held (or lapsed) booking as paid. Returns false if someone else got the time while this payment ran.
+// Marks a held (or lapsed) booking as paid. Returns false if someone else got the time while this payment ran,
+// or (personal links) another attempt with the same link got there first.
 export async function markConfirmed(id: string): Promise<boolean> {
   const { error } = await db()
     .update({ status: 'confirmed', confirmed_at: new Date().toISOString(), hold_expires_at: null })
     .eq('id', id)
     .in('status', ['pending', 'expired'])
-  if (error?.code === OVERLAP_VIOLATION) return false
+  if (error?.code === OVERLAP_VIOLATION || error?.code === UNIQUE_VIOLATION) return false
   if (error) throw error
   return true
 }
@@ -219,15 +221,19 @@ export async function getActiveBookings(from: Date, to: Date): Promise<Interval[
 // True when createHold failed because this link already has a held or booked call
 export const isInviteAlreadyUsed = (err: unknown) => (err as { code?: string } | null)?.code === UNIQUE_VIOLATION
 
-export async function createInvite(token: string, label: string | null): Promise<InviteRow> {
-  const { data, error } = await invites().insert({ token, label }).select().single()
+export async function createInvite(token: string, label: string | null, amountCents: number): Promise<InviteRow> {
+  const { data, error } = await invites().insert({ token, label, amount_cents: amountCents }).select().single()
   if (error) throw error
   return data as InviteRow
 }
 
-// Links that have a held or booked call. Callers expire stale holds first.
+// Links that have a booked call (or a free one being booked right now). An unfinished paid checkout doesn't
+// count: it's cleared when they try again. Callers expire stale holds first.
 async function usedInviteIds(inviteId?: string): Promise<Set<string>> {
-  let query = db().select('invite_id').not('invite_id', 'is', null).in('status', ['pending', 'confirmed'])
+  let query = db()
+    .select('invite_id')
+    .not('invite_id', 'is', null)
+    .or('status.eq.confirmed,and(status.eq.pending,stripe_payment_intent_id.is.null)')
   if (inviteId) query = query.eq('invite_id', inviteId)
   const { data, error } = await query
   if (error) throw error
@@ -249,6 +255,13 @@ export async function getOpenInvites(): Promise<InviteRow[]> {
   if (error) throw error
   const used = await usedInviteIds()
   return (data as InviteRow[]).filter((i) => !used.has(i.id))
+}
+
+// Held times of a link that aren't booked yet (checkouts in progress or abandoned)
+export async function getPendingInviteHolds(inviteId: string): Promise<BookingRow[]> {
+  const { data, error } = await db().select('*').eq('invite_id', inviteId).eq('status', 'pending')
+  if (error) throw error
+  return data as BookingRow[]
 }
 
 // Stops a link from working. False if it doesn't exist or was already revoked.

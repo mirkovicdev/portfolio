@@ -92,14 +92,22 @@ Check what's due without sending: `GET /api/booking/reminders?dryRun=1` with the
 - Disputes (chargebacks): an upcoming call is cancelled the same way; for a past call you get an email with
   the evidence to submit in Stripe. Refunds after the call (goodwill) change nothing else.
 
-## Free calls (personal links)
+## Personal links (free or paid)
 
-- `/admin` → **Free call links** → type who it's for (only you see it) → **Create link**. The link
-  (`mirkovic.dev/meet/…`) is copied; send it to that one person.
-- Each link books **one** free 45-min call in the same open times as paid calls, with the same calendar event,
-  Meet link, confirmation and reminder emails. No payment, nothing in Stripe.
-- Once booked, the link stops working and leaves the list; the call shows under **Upcoming bookings** as "Free".
-  **Cancel** there removes the calendar event and makes the link work again (so they can pick a new time).
+- `/admin` → **Personal links** → type who it's for (only you see it), optionally switch on **Paid** and set a
+  price → **Create link**. The link (`mirkovic.dev/meet/…`) is copied; send it to that one person.
+- Each link books **one** 45-min call in the same open times as public calls, with the same calendar event,
+  Meet link, confirmation and reminder emails, all named "Call with Antonije".
+  - Free: no payment, nothing in Stripe.
+  - Paid: they pay the link's price by card / Apple Pay / Google Pay, exactly like a public booking (same
+    Stripe payment, receipt, webhook, 24-hour cancellation policy). The price is fixed per link: to change it,
+    revoke the link and create a new one.
+- Once booked, the link stops working and leaves the list; the call shows under **Upcoming bookings**.
+  Cancelling it (free: **Cancel**; paid: **Refund to cancel** in Stripe, or **Cancel without refund**) removes the
+  calendar event and makes the link work again, so they can pick a new time.
+- An unfinished paid checkout holds the time and the link for 15 minutes; if they come back and try again, their
+  earlier attempt is cleared automatically.
 - **Revoke** kills an unused link right away. Links are 128-bit random, not indexed by search engines, and
-  `/meet` is linked from nowhere on the site. Stored in `call_invites`; a booking points to its link via
-  `call_bookings.invite_id` (the database allows $0 only with a link, and one active call per link).
+  `/meet` is linked from nowhere on the site. Stored in `call_invites` (`amount_cents`, 0 = free); a booking
+  points to its link via `call_bookings.invite_id` (the database allows $0 only with a link, and one active call
+  per link).

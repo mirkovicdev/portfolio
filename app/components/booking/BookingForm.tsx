@@ -14,8 +14,15 @@ export interface BookedResult {
   meetUrl?: string | null
 }
 
+// A paid personal link (/meet/<token>): the price comes from the link, and there's no "Where are you now?" question
+export interface PaidLink {
+  token: string
+  onGone: (reason: 'used' | 'invalid') => void // the link stopped working (already booked, or revoked)
+}
+
 interface Props {
-  topicId: string
+  topicId?: string // public booking: the chosen topic, which sets the price on the server
+  link?: PaidLink
   price: string
   slot: Date | null
   summary: string | null
@@ -25,7 +32,7 @@ interface Props {
 
 // Steps 3 + 4 on one screen: quick quiz, details, card / Apple Pay / Google Pay, one button.
 // Must be rendered inside <Elements>.
-export default function BookingForm({ topicId, price, slot, summary, onBooked, onTaken }: Props) {
+export default function BookingForm({ topicId, link, price, slot, summary, onBooked, onTaken }: Props) {
   const stripe = useStripe()
   const elements = useElements()
   const [background, setBackground] = useState<string | null>(null)
@@ -40,7 +47,7 @@ export default function BookingForm({ topicId, price, slot, summary, onBooked, o
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!slot) return
-    if (!background) return setError('Pick where you are now.')
+    if (!link && !background) return setError('Pick where you are now.')
     if (!stripe || !elements) return
     setError(null)
     setPending(true)
@@ -49,22 +56,21 @@ export default function BookingForm({ topicId, price, slot, summary, onBooked, o
       const { error: fieldError } = await elements.submit() // Stripe shows card errors next to the fields
       if (fieldError) return
 
-      const details = {
-        topicId,
+      const common = {
         start: slot.toISOString(),
         name: name.trim(),
         email: email.trim(),
-        background,
         message: message.trim(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         hour12: visitorUses12h(),
       }
+      const details = link ? { token: link.token, ...common } : { topicId, background, ...common }
       const key = JSON.stringify(details)
 
       let current = hold.current
       if (current?.key !== key) {
         // New or changed details: hold the time + create the payment (and free any earlier hold)
-        const res = await fetch('/api/booking/checkout', {
+        const res = await fetch(link ? '/api/booking/invite' : '/api/booking/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...details, releaseBookingId: current?.bookingId }),
@@ -72,6 +78,10 @@ export default function BookingForm({ topicId, price, slot, summary, onBooked, o
         if (res.status === 409) {
           hold.current = null
           return onTaken()
+        }
+        if (link && (res.status === 404 || res.status === 410)) {
+          hold.current = null
+          return link.onGone(res.status === 410 ? 'used' : 'invalid')
         }
         const data = await res.json().catch(() => ({}))
         if (!res.ok || !data.clientSecret) {
@@ -113,25 +123,27 @@ export default function BookingForm({ topicId, price, slot, summary, onBooked, o
     <form onSubmit={handleSubmit} className="mt-5 border-t border-white/[0.08] pt-5 animate-in fade-in slide-in-from-top-1 duration-300 motion-reduce:animate-none">
       <p className="text-[15px] font-medium text-zinc-50">{summary ?? 'Pick a time above'}</p>
 
-      <div className="mt-4">
-        <p className="text-[13px] text-zinc-400">Where are you now?</p>
-        <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Where are you now?">
-          {booking.backgrounds.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              aria-pressed={background === b.id}
-              onClick={() => {
-                setBackground(b.id)
-                setError(null)
-              }}
-              className={chipClass(background === b.id)}
-            >
-              {b.label}
-            </button>
-          ))}
+      {!link && (
+        <div className="mt-4">
+          <p className="text-[13px] text-zinc-400">Where are you now?</p>
+          <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Where are you now?">
+            {booking.backgrounds.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                aria-pressed={background === b.id}
+                onClick={() => {
+                  setBackground(b.id)
+                  setError(null)
+                }}
+                className={chipClass(background === b.id)}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mt-4 space-y-3">
         <label className="block">

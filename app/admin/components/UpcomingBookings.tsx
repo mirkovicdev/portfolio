@@ -15,7 +15,8 @@ export interface AdminBooking {
   message: string | null
   meetUrl: string | null
   paid: string
-  free: boolean // booked with a personal link: nothing to refund
+  free: boolean // free personal link call: nothing to refund
+  viaLink: boolean // booked through a personal link (free or paid): cancelling makes the link work again
   clientTimeZone: string | null
   refundUrl: string | null
 }

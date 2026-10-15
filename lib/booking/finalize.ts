@@ -3,7 +3,7 @@
 // Called by both /api/booking/confirm (right after paying) and the Stripe webhook (backup), so it is idempotent.
 import 'server-only'
 import { site, formatPrice } from '@/lib/site'
-import { backgroundLabel, hostLabel, isFree } from './labels'
+import { backgroundLabel, hostLabel, isFree, isLinkCall } from './labels'
 import { stripe, BOOKING_SOURCE } from './stripe'
 import { getBooking, markConfirmed, updateBooking, type BookingRow } from './db'
 import { createCalendarEvent, googleConfigured } from './google'
@@ -22,7 +22,7 @@ function eventDescription(b: BookingRow) {
     '',
     `Topic: ${hostLabel(b)}`,
     background ? `Background: ${background}` : null,
-    `Paid: ${isFree(b) ? 'free (personal link)' : formatPrice(b.amount_cents / 100, b.currency)}`,
+    `Paid: ${isFree(b) ? 'free' : formatPrice(b.amount_cents / 100, b.currency)}${isLinkCall(b) ? ' (personal link)' : ''}`,
     `Client time zone: ${b.visitor_time_zone ?? 'unknown'}`,
     '',
     'What to talk about:',

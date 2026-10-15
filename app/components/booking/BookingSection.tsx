@@ -1,17 +1,15 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { Elements } from '@stripe/react-stripe-js'
-import type { StripeElementsOptions } from '@stripe/stripe-js'
-import { Check, RotateCcw } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { site, formatPrice } from '@/lib/site'
 import { lowestPrice, priceForTopic } from '@/lib/booking/catalog'
 import TopicPicker from './TopicPicker'
 import TimePicker from './TimePicker'
-import BookingForm, { type BookedResult } from './BookingForm'
+import BookingForm from './BookingForm'
+import BookingConfirmation, { type ConfirmationResult } from './BookingConfirmation'
+import PaymentElements from './PaymentElements'
 import { useOpenTimes } from './useOpenTimes'
 import { describeSlot } from './format'
-import { getStripe, stripeAppearance, stripeFonts } from './stripe-client'
 
 const { booking } = site
 
@@ -23,26 +21,12 @@ export default function BookingSection() {
   const [slot, setSlot] = useState<Date | null>(null)
   const [formOpen, setFormOpen] = useState(false) // stays open once shown so typed details survive time changes
   const [notice, setNotice] = useState<string | null>(null)
-  const [result, setResult] = useState<(BookedResult & { slot: Date }) | null>(null)
+  const [result, setResult] = useState<ConfirmationResult | null>(null)
   const timesRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLDivElement>(null)
 
   const price = topicId ? priceForTopic(topicId) : undefined
   const priceLabel = price ? formatPrice(price, booking.currency) : ''
-
-  // The payment form's amount follows the chosen topic
-  const stripePromise = formOpen ? getStripe() : null
-  const elementsOptions = useMemo<StripeElementsOptions>(
-    () => ({
-      mode: 'payment',
-      amount: (price ?? lowestPrice) * 100,
-      currency: booking.currency.toLowerCase(),
-      paymentMethodTypes: ['card'],
-      appearance: stripeAppearance,
-      fonts: stripeFonts,
-    }),
-    [price]
-  )
 
   function selectTopic(id: string) {
     // Tapping the selected topic again deselects it and collapses the card back to the topic list
@@ -99,7 +83,7 @@ export default function BookingSection() {
 
       <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
         {result ? (
-          <Confirmation result={result} onReset={reset} />
+          <BookingConfirmation result={result} receipt onReset={reset} />
         ) : (
           <>
             <TopicPicker selected={topicId} onSelect={selectTopic} />
@@ -112,65 +96,22 @@ export default function BookingSection() {
 
             {topicId && formOpen && (
               <div ref={formRef} className="scroll-mt-4">
-                {stripePromise ? (
-                  <Elements stripe={stripePromise} options={elementsOptions}>
-                    <BookingForm
-                      topicId={topicId}
-                      price={priceLabel}
-                      slot={slot}
-                      summary={slot && describeSlot(slot)}
-                      onBooked={(r) => slot && setResult({ ...r, slot })}
-                      onTaken={handleTaken}
-                    />
-                  </Elements>
-                ) : (
-                  <p className="mt-5 border-t border-white/[0.08] pt-5 text-[14px] text-zinc-400">
-                    Online payment isn&apos;t set up yet. Email {site.contactEmail} to book this time.
-                  </p>
-                )}
+                {/* The payment form's amount follows the chosen topic */}
+                <PaymentElements amount={price ?? lowestPrice}>
+                  <BookingForm
+                    topicId={topicId}
+                    price={priceLabel}
+                    slot={slot}
+                    summary={slot && describeSlot(slot)}
+                    onBooked={(r) => slot && setResult({ ...r, slot })}
+                    onTaken={handleTaken}
+                  />
+                </PaymentElements>
               </div>
             )}
           </>
         )}
       </div>
     </section>
-  )
-}
-
-function Confirmation({ result, onReset }: { result: BookedResult & { slot: Date }; onReset: () => void }) {
-  if (result.status === 'cancelled') {
-    return (
-      <div className="py-2" role="status">
-        <p className="text-[18px] font-semibold text-zinc-50">That time was taken while you were paying</p>
-        <p className="mt-1 text-[15px] leading-relaxed text-zinc-400">
-          Your payment has been refunded in full. Pick another time, or email {site.contactEmail}.
-        </p>
-        <button type="button" onClick={onReset} className="mt-4 inline-flex items-center gap-2 text-[14px] text-zinc-50 underline decoration-white/30 underline-offset-4">
-          <RotateCcw className="size-4" aria-hidden /> Pick another time
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="py-2" role="status">
-      <span className="grid size-10 place-items-center rounded-full bg-phthalo-950 text-phthalo-300">
-        <Check className="size-5" aria-hidden />
-      </span>
-      <p className="mt-4 text-[18px] font-semibold text-zinc-50">You&apos;re booked</p>
-      <p className="mt-1 text-[15px] leading-relaxed text-zinc-400">
-        {describeSlot(result.slot)}. A confirmation with your Google Meet link and a calendar invite is on its way to {result.email}.
-        Your receipt comes separately from Stripe.
-      </p>
-      {result.meetUrl && (
-        <a href={result.meetUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-[14px] text-zinc-50 underline decoration-white/30 underline-offset-4">
-          Open the Meet link
-        </a>
-      )}
-      <p className="mt-4 text-[13px] leading-relaxed text-zinc-500">
-        Can&apos;t find the email? Check your spam or promotions folder, and mark it as not spam so the reminder before the call
-        reaches your inbox.
-      </p>
-    </div>
   )
 }

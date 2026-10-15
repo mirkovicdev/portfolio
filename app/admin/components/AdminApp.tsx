@@ -36,7 +36,9 @@ export default function AdminApp({ email, today, initialOpened, bookings: initia
 
   function handleCancelled(b: AdminBooking, emailed: boolean) {
     setBookings((list) => list.filter((x) => x.id !== b.id))
-    setBookingNote(`Cancelled ${b.name}'s call${emailed ? ' and emailed them' : ''}.${b.free ? ' Their link works again.' : ' No refund was made.'}`)
+    setBookingNote(
+      `Cancelled ${b.name}'s call${emailed ? ' and emailed them' : ''}.${b.free ? '' : ' No refund was made.'}${b.viaLink ? ' Their link works again.' : ''}`
+    )
   }
   const bookingCount = useMemo(() => Object.fromEntries(Object.entries(bookingsByDay).map(([d, list]) => [d, list.length])), [bookingsByDay])
 
@@ -119,11 +121,11 @@ export default function AdminApp({ email, today, initialOpened, bookings: initia
 
         <section className="mt-12" aria-labelledby="links-heading">
           <h2 id="links-heading" className="font-mono text-[18px] font-semibold tracking-[-0.02em] text-zinc-50">
-            Free call links
+            Personal links
           </h2>
           <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
-            Each link books one free {durationMin}-min call in your open times. Send it to one person; it stops working once they
-            book.
+            Each link books one {durationMin}-min call in your open times, free or at the price you set (paid by card, like the
+            public booking). Send it to one person; it stops working once they book.
           </p>
           <InviteLinks initialInvites={invites} />
         </section>

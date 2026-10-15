@@ -4,7 +4,7 @@ import { getAdminSession } from '@/lib/admin/session'
 import { signInConfigured } from '@/lib/admin/google-signin'
 import { getOpenedDays, getOpenInvites, getUpcomingBookings } from '@/lib/booking/db'
 import { inviteUrl } from '@/lib/booking/catalog'
-import { backgroundLabel, hostLabel, isFree } from '@/lib/booking/labels'
+import { backgroundLabel, hostLabel, isFree, isLinkCall } from '@/lib/booking/labels'
 import { stripeDashboardUrl } from '@/lib/booking/stripe'
 import { zonedDayKey } from '@/lib/booking/slots'
 import AdminLogin from './components/AdminLogin'
@@ -41,12 +41,19 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     meetUrl: b.meet_url,
     paid: isFree(b) ? 'Free' : formatPrice(b.amount_cents / 100, b.currency),
     free: isFree(b),
+    viaLink: isLinkCall(b),
     clientTimeZone: b.visitor_time_zone,
     refundUrl: b.stripe_payment_intent_id ? stripeDashboardUrl(`payments/${b.stripe_payment_intent_id}`) : null,
   }))
 
-  // Unused free call links; the token only reaches this page as part of the full link
-  const invites: AdminInvite[] = openInvites.map((i) => ({ id: i.id, label: i.label, createdAt: i.created_at, url: inviteUrl(i.token) }))
+  // Unused personal links; the token only reaches this page as part of the full link
+  const invites: AdminInvite[] = openInvites.map((i) => ({
+    id: i.id,
+    label: i.label,
+    createdAt: i.created_at,
+    url: inviteUrl(i.token),
+    price: i.amount_cents / 100,
+  }))
 
   return <AdminApp email={session.email} today={today} initialOpened={opened} bookings={upcoming} invites={invites} />
 }

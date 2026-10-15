@@ -5,7 +5,7 @@
 import 'server-only'
 import nodemailer from 'nodemailer'
 import { site, formatPrice } from '@/lib/site'
-import { backgroundLabel, callNoun, callTitle, cancellationText, hostLabel as topicLabel, isFree } from './labels'
+import { backgroundLabel, callNoun, callTitle, cancellationText, hostLabel as topicLabel, isFree, isLinkCall } from './labels'
 import { buildIcs, icsDate } from './ics'
 import { formatRangeIn, formatTimeIn, friendlyZoneName } from './zones'
 import { stripeDashboardUrl } from './stripe'
@@ -31,7 +31,7 @@ export function buildOwnerEmail(b: BookingRow): nodemailer.SendMailOptions {
   const background = backgroundLabel(b)
 
   const text = [
-    `${b.name} booked a ${isFree(b) ? 'free call with a personal link' : `${topicLabel(b)} call`}.`,
+    `${b.name} booked a ${isLinkCall(b) ? `${isFree(b) ? 'free' : 'paid'} call with a personal link` : `${topicLabel(b)} call`}.`,
     '',
     `When: ${hostWhen} ${friendlyZoneName(host)}`,
     guestZone
@@ -71,8 +71,8 @@ export function buildClientEmail(b: BookingRow): nodemailer.SendMailOptions {
   const when = formatRangeIn(b.start_at, b.end_at, zone, hour12)
   const zoneName = friendlyZoneName(zone)
   const title = callTitle(b)
-  // "Study plan, 45-minute video call", or just "45-minute video call" for a free call
-  const what = `${isFree(b) ? '' : `${topicLabel(b)}, `}${site.booking.durationMin}-minute video call`
+  // "Study plan, 45-minute video call", or just "45-minute video call" for a personal link call
+  const what = `${isLinkCall(b) ? '' : `${topicLabel(b)}, `}${site.booking.durationMin}-minute video call`
   const policy = cancellationText(b)
   const receipt = isFree(b) ? null : 'Your receipt comes separately from Stripe.'
   const firstName = b.name.trim().split(/\s+/)[0]
