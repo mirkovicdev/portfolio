@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { site, formatPrice } from '@/lib/site'
+import { focusRing } from '@/app/components/booking/styles'
 
 export interface AdminInvite {
   id: string
@@ -97,26 +98,28 @@ export default function InviteLinks({ initialInvites }: { initialInvites: AdminI
               setPaid(!paid)
               setError(null)
             }}
-            className="flex h-11 shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.08] px-3 text-[14px] text-zinc-50 transition-colors hover:border-white/25"
+            className={`flex h-11 shrink-0 items-center gap-2.5 rounded-xl border border-white/[0.08] px-3 text-[14px] text-zinc-50 transition-colors hover:border-white/25 ${focusRing}`}
           >
-            <span className={`relative h-5 w-9 rounded-full transition-colors ${paid ? 'bg-phthalo-500' : 'bg-zinc-700'}`} aria-hidden>
-              <span className={`absolute top-0.5 size-4 rounded-full bg-zinc-50 transition-transform ${paid ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+            {/* Knob pinned with left-0.5: without it, the button's centred text puts it mid-track */}
+            <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${paid ? 'bg-phthalo-500' : 'bg-zinc-700'}`} aria-hidden>
+              <span
+                className={`absolute left-0.5 top-0.5 size-4 rounded-full bg-zinc-50 shadow-sm transition-transform duration-200 ${paid ? 'translate-x-4' : 'translate-x-0'}`}
+              />
             </span>
             Paid
           </button>
           {paid ? (
             <label className="relative min-w-0 flex-1">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-zinc-400">$</span>
+              {/* Text + numeric keyboard instead of type="number": no spinner arrows, and scrolling can't change it */}
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={1}
-                max={10000}
-                step={1}
+                maxLength={5}
                 required
                 autoFocus
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))}
                 placeholder="Price"
                 aria-label="Price in US dollars"
                 className={`${inputClass} pl-8`}
