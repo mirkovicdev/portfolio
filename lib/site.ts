@@ -22,11 +22,17 @@ export const site = {
     { label: 'GitHub', href: 'https://go.quantframe.io/github', icon: 'github' },
   ] satisfies { label: string; href: string; icon: SocialIcon }[],
 
+  // First link: the home page of frontierhack.com is the waitlist
+  frontierhack: {
+    href: 'https://frontierhack.com',
+    description: 'Compete for cash prizes, introductions to the firms and interviews. Join the waitlist.',
+    image: '/frontierhack-card.webp', // 1200×630 social preview, shown whole
+    logo: '/frontierhack-logo.png', // 512×512, same file as frontierhack.com/icon.png
+  },
+
   quantframe: {
     href: 'https://go.quantframe.io/home',
     description: 'Want to work in quant? Start here: real projects, 1,000+ problems and a roadmap built around you.',
-    image: '/quantframe-card.webp', // 1000×562 screenshot of quantframe.io
-    imageZoom: 1.2, // trims the empty sides; full height is always kept
   },
 
   discord: {

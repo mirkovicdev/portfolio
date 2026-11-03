@@ -23,15 +23,23 @@ function CardRow({ icon, title, description }: { icon: ReactNode; title: string;
   )
 }
 
-// Primary card: product preview image on top
-export function QuantFrameCard() {
-  const { href, description, image, imageZoom } = site.quantframe
+// Primary card: competition preview image on top, full frame
+export function FrontierHackCard() {
+  const { href, description, image, logo } = site.frontierhack
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" className={cardClass}>
-      {/* Narrower frame than the 1000×562 screenshot: object-cover trims the sides, keeps full height */}
-      <div className="border-b border-white/[0.08]" style={{ aspectRatio: `${1000 / imageZoom} / 562` }}>
-        <Image src={image} alt="" width={1000} height={562} className="size-full object-cover" />
+      <div className="border-b border-white/[0.08]">
+        <Image src={image} alt="" width={1200} height={630} className="h-auto w-full" />
       </div>
+      <CardRow icon={<Image src={logo} alt="" width={512} height={512} className="size-full" />} title="FrontierHack" description={description} />
+    </a>
+  )
+}
+
+export function QuantFrameCard() {
+  const { href, description } = site.quantframe
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cardClass}>
       <CardRow icon={<QuantFrameLogo className="size-6" />} title="QuantFrame" description={description} />
     </a>
   )

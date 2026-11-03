@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import ProfileHeader from './components/ProfileHeader'
-import { QuantFrameCard, DiscordCard } from './components/LinkCards'
+import { FrontierHackCard, QuantFrameCard, DiscordCard } from './components/LinkCards'
 import BookingSection from './components/booking/BookingSection'
 import { site } from '@/lib/site'
 
@@ -12,6 +12,7 @@ export default function Home() {
         <ProfileHeader />
 
         <div className="mt-8 space-y-3 px-5">
+          <FrontierHackCard />
           <QuantFrameCard />
           <DiscordCard />
         </div>
