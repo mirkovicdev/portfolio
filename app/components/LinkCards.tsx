@@ -31,7 +31,12 @@ export function FrontierHackCard() {
       <div className="border-b border-white/[0.08]">
         <Image src={image} alt="" width={1200} height={630} className="h-auto w-full" />
       </div>
-      <CardRow icon={<Image src={logo} alt="" width={512} height={512} className="size-full" />} title="FrontierHack" description={description} />
+      {/* lighten turns the icon's near-black square (#050505) into the tile's gray; the file stays untouched */}
+      <CardRow
+        icon={<Image src={logo} alt="" width={512} height={512} className="size-7 mix-blend-lighten" />}
+        title="FrontierHack"
+        description={description}
+      />
     </a>
   )
 }
