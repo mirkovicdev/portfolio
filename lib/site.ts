@@ -22,9 +22,9 @@ export const site = {
     { label: 'GitHub', href: 'https://go.quantframe.io/github', icon: 'github' },
   ] satisfies { label: string; href: string; icon: SocialIcon }[],
 
-  // First link: the home page of frontierhack.com is the waitlist
+  // First link: the home page of frontierhack.com is the waitlist (UTM tags mark sign-ups that came from this page)
   frontierhack: {
-    href: 'https://frontierhack.com',
+    href: 'https://frontierhack.com/?utm_source=mirkovic.dev&utm_medium=social&utm_campaign=link-in-bio',
     description: 'Compete for cash prizes, introductions to the firms and interviews. Join the waitlist.',
     image: '/frontierhack-card.webp', // 1200×630 social preview, shown whole
     logo: '/frontierhack-logo.png', // 512×512, same file as frontierhack.com/icon.png
